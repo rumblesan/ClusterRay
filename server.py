@@ -5,43 +5,36 @@ import os
 import socket
 import threading
 import Queue
+import time
 
 jobQueue = Queue.Queue(0)
-lock = thread.allocate_lock()
 
 
 class ServerObj():
 
     def __init__(self):
-        self.serverIP       = None
-        self.basePort       = 5007
-        self.baseSocket     = None
-        
-        self.threadNumber   = 0
-        self.jobQueue       = 0
-        
-        self.startingUp     = True
-        self.serverRunning  = False
-        self.taskRunning    = False
+        self.serverIP       = ''
+        self.serverPort     = 5007
     
     def CreateSocket(self):
-        while self.startingUp:
+        openingSocket = True
+        while openingSocket:
             try:
-                self.baseSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             except socket.error, msg:
                 continue
             
             try:
-                self.baseSocket.bind((self.serverIP,self.basePort))
-                self.baseSocket.listen(5)
+                serverSocket.bind((self.serverIP,self.serverPort))
+                serverSocket.listen(5)
             except socket.error, msg:
-                self.baseSocket.close()
-                self.baseSocket = None
+                serverSocket.close()
+                serverSocket = None
                 continue
-                
-            self.baseSocket.settimeout(5)
-            self.startingUp = False
-            self.serverRunning = True
+            
+            openingSocket = False
+        
+        return serverSocket
 
 
     def CreateJobs(self, numberPerNode, Dimensions):
@@ -57,124 +50,96 @@ class ServerObj():
 
 class ClientThread(threading.Thread):
 
-    def __init__(self, nodeSocket):
-        self.node = NodeObject(nodeSocket)
+    def __init__(self, newSocket):
+        self.client   = ClientObject(newSocket)
+        self.running  = True
         
         threading.Thread.__init__.self
         # create a thread for a particular socket
     
     def run(self):
+    
+        while self.running:
+        
+            self.client.GetClientInfo()
+            
 
+class ClientObject()
 
-class NodeObject()
-
-    def __init__(self, nodeSocket):
-        self.socket = nodeSocket
-
-    def getInctructions(self, filename):
+    def __initII(self, newSocket):
+        self.clientSocket = newSocket
+    
+    def GetClientInfo()
         pass
-        # send a file to the node
+        # receive job instructions from client
 
 
 class NodeThread(threading.Thread):
 
-    def __init__(self, nodeSocket):
-        self.node = NodeObject(nodeSocket)
+    def __init__(self, newSocket):
+        self.node    = NodeObject(newSocket)
         self.running = True
-        self.waiting = True
-        self.tasking = True
         
         threading.Thread.__init__.self
         # create a thread for a particular socket
     
     def run(self):
-    
-        lock.acquire()
-        ClusterServer.threadnumber += 1
-        lock.release()
-        
-        self.node.sendFiles()
-        self.node.HandShake()
         
         while self.running:
         
-            while self.waiting:
-                pass
-                # listen for instructions here
-                # receive file
-                # receive instructions
-                
-            while self.tasking:
-                if self.node.RunJob():
-                    self.node.WaitForTask()
-                else:
-                    break
-                    
-                self.node.RetrieveImage()
-                
-            self.node.CleanupNode()
-            lock.acquire()
-            ClusterServer.threadnumber -= 1
-            if ClusterServer.threadnumber == 0:
-                ClusterServer.taskRunning = False
-            lock.release()
+            self.node.GetJob()
+            self.node.RunJob()
+
 
 class NodeObject()
 
-    def __init__(self, nodeSocket):
-        self.socket = nodeSocket
+    def __init__(self, newSocket):
+        self.nodeSocket = newSocket
+        self.jobParams  = None
 
-    def SendFiles(self, filename):
-        pass
-        # send a file to the node
-    
+    def GetJob(self):
+        queueing = True
+        while queueing:
+            jobInfo = jobQueue.Get()
+            if jobInfo != None:
+                self.jobParams = jobInfo
+                queueing = False
+            else:
+                time.sleep(10)
+        
+        # try to get a job from the queue
+        # sleep for 10 seconds if nothing available
+
     def RunJob(self):
         pass
-        return 0
         # get a job from the queue and send it to the node
-
-    def HandShake(self):
-        pass
-        # check that the node is ready to go
-
-    def WaitForTask(self):
-        pass
-        # wait for the task to be completed
 
     def RetrieveImage(self):
         pass
         # retrieve an image from a node
-    
-    def CleanupNode(self):
-        pass
-        # deletes any files off nodes
 
 
 if __name__ == '__main__':
 
-    nodeTasks = 2
-    width     = 1024
-    height    = 768
-
     ClusterServer = ServerObj()
+    
     global ClusterServer
+    global serverSocket
     
-    ClusterServer.CreateJobs(nodeTasks, (width, height))
+    serverRunning = True
     
-    ClusterServer.CreateSocket()
+    while true:
+    
+        serverSocket = ClusterServer.CreateSocket()
+        
+        while serverRunning:
 
-    while ClusterServer.taskRunning:
-        try:
-            socket = ClusterServer.baseSocket.accept()
-            socket.settimeout(None)
-            socketType = ClusterServer.baseSocket.recv(1024)
+            newSocket = serverSocket.accept()
+            
+            socketType = newSocket.recv(1024)
+            
             if socketType == 'node':
-                NodeThread(socket).start()
+                NodeThread(newSocket).start()
             else if socketType == 'client':
-                ClientThread(socket).start()
-        except socket.timeout
-            pass
+                ClientThread(newSocket).start()
 
-
-
-    ClusterServer.JoinImages()
