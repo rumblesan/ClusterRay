@@ -13,15 +13,16 @@ lock = thread.allocate_lock()
 class ServerObj():
 
     def __init__(self):
-        self.serverIP = None
-        self.basePort = 5007
-        self.baseSocket = None
+        self.serverIP       = None
+        self.basePort       = 5007
+        self.baseSocket     = None
         
-        self.threadNumber = 0
-        self.jobQueue = 0
+        self.threadNumber   = 0
+        self.jobQueue       = 0
         
-        self.startingUp  = True
-        self.taskRunning = False
+        self.startingUp     = True
+        self.serverRunning  = False
+        self.taskRunning    = False
     
     def CreateSocket(self):
         while self.startingUp:
@@ -40,7 +41,8 @@ class ServerObj():
                 
             self.baseSocket.settimeout(5)
             self.startingUp = False
-            self.taskRunning = True
+            self.serverRunning = True
+
 
     def CreateJobs(self, numberPerNode, Dimensions):
         pass
@@ -53,11 +55,34 @@ class ServerObj():
         # joins the image slices together
  
 
+class ClientThread(threading.Thread):
+
+    def __init__(self, nodeSocket):
+        self.node = NodeObject(nodeSocket)
+        
+        threading.Thread.__init__.self
+        # create a thread for a particular socket
+    
+    def run(self):
+
+
+class NodeObject()
+
+    def __init__(self, nodeSocket):
+        self.socket = nodeSocket
+
+    def getInctructions(self, filename):
+        pass
+        # send a file to the node
+
+
 class NodeThread(threading.Thread):
 
     def __init__(self, nodeSocket):
         self.node = NodeObject(nodeSocket)
         self.running = True
+        self.waiting = True
+        self.tasking = True
         
         threading.Thread.__init__.self
         # create a thread for a particular socket
@@ -70,17 +95,29 @@ class NodeThread(threading.Thread):
         
         self.node.sendFiles()
         self.node.HandShake()
-        while self.running:
-            self.node.RunTask()
-            self.node.WaitForTask()
-            self.node.RetrieveImage()
         
-        self.node.CleanupNode()
-        lock.acquire()
-        ClusterServer.threadnumber -= 1
-        if ClusterServer.threadnumber == 0:
-            ClusterServer.taskRunning = False
-        lock.release()
+        while self.running:
+        
+            while self.waiting:
+                pass
+                # listen for instructions here
+                # receive file
+                # receive instructions
+                
+            while self.tasking:
+                if self.node.RunJob():
+                    self.node.WaitForTask()
+                else:
+                    break
+                    
+                self.node.RetrieveImage()
+                
+            self.node.CleanupNode()
+            lock.acquire()
+            ClusterServer.threadnumber -= 1
+            if ClusterServer.threadnumber == 0:
+                ClusterServer.taskRunning = False
+            lock.release()
 
 class NodeObject()
 
@@ -91,8 +128,9 @@ class NodeObject()
         pass
         # send a file to the node
     
-    def RunTask(self):
+    def RunJob(self):
         pass
+        return 0
         # get a job from the queue and send it to the node
 
     def HandShake(self):
@@ -129,7 +167,11 @@ if __name__ == '__main__':
         try:
             socket = ClusterServer.baseSocket.accept()
             socket.settimeout(None)
-            NodeThread(socket).start()
+            socketType = ClusterServer.baseSocket.recv(1024)
+            if socketType == 'node':
+                NodeThread(socket).start()
+            else if socketType == 'client':
+                ClientThread(socket).start()
         except socket.timeout
             pass
 
