@@ -17,13 +17,8 @@ class NodeObj ():
         # network socket connected to server
         self.serverSocket    = None
 
-        # command line params and file list
-        self.jobParams       = None
-        self.jobFiles        = None
-
         # node states
         self.connectedServer = False
-        self.taskRunning     = False
 
     def ServerConnect(self):
         # keep trying to connect to server
@@ -44,8 +39,6 @@ class NodeObj ():
 
             self.serverSocket.setblocking(1)
             self.connectedServer = True
-        
-        return 1
 
     def Handshake(self):
         # check in with the server
@@ -60,42 +53,49 @@ class NodeObj ():
                 time.sleep(2)
                 
         return serverStatus
-
+        
     def CheckForJobs(self):
-        while checking
+        # waits untill it gets a job
+        checking = True
+        while checking:
             self.wakeSocket.send('work')
             jobStatus = self.wakeSocket.recv(1024)
             if jobStatus == 'available':
-                waiting = False
+                # get files transfered over
+                # get job params transfered over
+                job.jobParams   = None
+                job.jobFileList = None
+                checking        = False
             else:
-                time.sleep(2)
+                time.sleep(10)
+        return 1
 
-    def GetJobInfo(self):
-        pass
-        #get the job files and params
 
+class JobObj():
+
+    def __init__(self):
+        self.jobParams    = ''
+        self.jobFileList  = ''
+    
     def RunJob(self):
         # run the job process
         pass
 
-    def CleanUp(self):
-        # deletes all local files
-        # closes job listening socket
-        pass
+    def ReturnInfo(self):
+        # send job completion message back
+        # format output of job program
+        #send job information back
 
 
 if __name__ == '__main__':
 
     clusterNode = NodeObj()
-
+    job         = JobObj()
+    
     while true:
         clusterNode.ServerConnect()
         clusterNode.Handshake()
         
         while clusterNode.connectedServer:
-            clusterNode.CheckForJobs()
-            
-            while clusterNode.taskRunning:
-                clusterNode.RunJob()
-            
-
+            if clusterNode.CheckForJobs():
+                job.RunJob
