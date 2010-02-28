@@ -45,8 +45,8 @@ class NodeObj ():
         # tell it that this is a node
         waiting = True
         while waiting:
-            self.wakeSocket.send('node')
-            serverStatus = self.wakeSocket.recv(1024)
+            self.serverSocket.send('node')
+            serverStatus = self.serverSocket.recv(1024)
             if serverStatus == 'connected':
                 waiting = False
             else:
@@ -58,8 +58,8 @@ class NodeObj ():
         # waits untill it gets a job
         checking = True
         while checking:
-            self.wakeSocket.send('work')
-            jobStatus = self.wakeSocket.recv(1024)
+            self.serverSocket.send('work')
+            jobStatus = self.serverSocket.recv(1024)
             if jobStatus == 'available':
                 # get files transfered over
                 # get job params transfered over
