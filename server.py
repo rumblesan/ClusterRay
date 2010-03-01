@@ -77,7 +77,7 @@ class ClientThread(threading.Thread):
         threading.Thread.__init__(self)
     
     def run(self):
-        self.client.SendServerStatus()
+        self.client.Handshake()
         while self.running:
             self.client.GetClientInfo()
             
@@ -87,7 +87,7 @@ class ClientObject():
     def __init__(self, newSocket):
         self.clientSocket = newSocket
 
-    def SendServerStatus(self):
+    def Handshake(self):
         self.clientSocket.send('connected')
 
     def GetClientInfo(self):
@@ -95,9 +95,10 @@ class ClientObject():
         tarFileName = fileName + '.tar.gz'
         ftpFile = os.path.join(os.getcwd(), 'files', tarFileName)
         if os.path.isfile(ftpFile):
-            print 'client sent file ', fileName
+            print 'Client sent file ', fileName
             taskQueue.put(fileName)
-            
+        else:
+            print 'No file can be found for ', fileName
 
 
 
