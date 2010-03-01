@@ -4,6 +4,7 @@
 import os
 import socket
 import time
+import tar
 
 class NodeObj ():
 
@@ -58,18 +59,41 @@ class NodeObj ():
         # waits untill it gets a job
         checking = True
         while checking:
-            self.serverSocket.send('work')
+            self.serverSocket.send('any jobs')
             jobStatus = self.serverSocket.recv(1024)
             if jobStatus == 'available':
-                # get files transfered over
-                # get job params transfered over
-                job.jobParams   = None
-                job.jobFileList = None
-                checking        = False
+                self.serverSocket.send('info')
+                jobInfo = self.serverSocket.recv(1024)
+                jobInfo = jobInfo.split('::')
+                job.jobFile = jobInfo[0]
+                job.jobParams = jobInfo[1]
+                checking = False
             else:
                 time.sleep(10)
         return 1
 
+    def DownloadFile(self):
+        pass
+        # download the file from the ftp server
+    
+    def UntarFile(self):
+        tarName = self.jobFile + '.tar.gz'
+        tarFile = tarfile.open(tarName, mode = 'w:gz')
+        # need to check that the working dir is there
+        # if not, create it
+        tarFile.extractall('working')
+        tarFile.close()
+
+    def RunTask(self):
+        pass
+        # run povray from the command line
+        # use self.jobParams as the arguments
+
+    def UploadOutputFile(self):
+        pass
+        # need to upload output files to ftp server
+        # file params needs to define output file
+        # also folder to upload to
 
 class JobObj():
 
@@ -98,4 +122,6 @@ if __name__ == '__main__':
         
         while clusterNode.connectedServer:
             if clusterNode.CheckForJobs():
-                job.RunJob
+                job.DownloadFile()
+                job.UntarFile()
+                job.RunTask()
