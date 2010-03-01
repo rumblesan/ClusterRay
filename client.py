@@ -64,23 +64,25 @@ class ClientObj ():
         return serverStatus
 
     def GetFolderName(self):
-        print 'user input'
-        name = raw_input("type name of folder")
-        print 'user input is ', name
+	    # Get foldername to send to server from user
+		# check that folder exists
+		# this is a pretty rubbish way of sending tasks
+		# need to come up with a better way
+		print 'Enter name of folder'
+        name = raw_input('>>>   ')
         if os.path.isdir(name):
+		    print 'Folder ok, uploading now'
             return True
         else:
-            print "this is not a folder"
+            print 'This is not a folder'
             return False
 
     def SendTask(self):
-        # sends a task to the server
-        # uploads files to a new folder on the ftp server
-        # send the folder name tothe server
-        pass
+	    # send name of uploaded file to server
+        self.serverSocket.send(self.folderName)
 
     def TarFolder(self):
-    
+        # put chosen folder into a gzipped tar file
         self.tarName = self.folderName + '.tar.gz'
         try:
             tarFile = tarfile.open(self.tarName, mode = 'w:gz')
@@ -91,13 +93,13 @@ class ClientObj ():
             return None
 
     def FtpUpload(self):
-        s = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
-
-        f = open(self.tarName,'rb')
-        s.storbinary('STOR ' + self.tarName, f)
-
-        f.close()
-        s.quit()
+	    # upload tar.gz file to the ftp server
+		# probablly want error checking
+        ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
+        fileHandle = open(self.tarName,'rb')
+        ftpSocket.storbinary('STOR ' + self.tarName, fileHandle)
+        fileHandle.close()
+        ftpSocket.quit()
 
 
 
@@ -108,20 +110,23 @@ if __name__ == '__main__':
     Client = ClientObj()
     
     while True:
-        print 'client is trying to connect to server'
+        print 'Client is trying to connect to server'
         Client.ServerConnect()
-        print 'client is connected'
-        print 'client is handshaking'
+        print 'Client is connected'
+        print 'Client is handshaking'
         Client.Handshake()
-        print 'handshake OK'
+        print 'Handshake OK'
         
         while Client.connectedServer:
-            print 'waiting for input'
-            gotInput = Client.GetFolderName()
-            if gotInput == True:
-                print 'all ok'
-                Client.SendTask()
+            if Client.GetFolderName():
+			    print 'Creating Tar file'
+				Client.TarFolder()
+				print 'Uploading to FTP server'
+				Client.FtpUpload()
+				print 'Sending server task name'
+				Client.SendTask()
+				# probablly want notification of when task is done
+				# possibly another thread so more jobs can be sent as well
             else:
                 time.sleep(3)
-            # wait for user to define jobs
-            # send jobs to server
+
