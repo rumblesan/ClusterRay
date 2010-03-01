@@ -5,6 +5,7 @@ import os
 import socket
 import time
 import tarfile
+import ftplib
 
 class ClientObj ():
 
@@ -12,8 +13,8 @@ class ClientObj ():
         # details of main server
         # will eventually be in cfg file
         # possibly host name based
-        self.serverIP        = '192.168.0.50'
-        self.serverPort      = 6007
+        self.serverIP        = '192.168.2.4'
+        self.serverPort      = 5007
         
         self.ftpServer       = self.serverIP
         self.ftpUser         = 'client'
@@ -30,7 +31,7 @@ class ClientObj ():
 
     def ServerConnect(self):
         # keep trying to connect to server
-        while !self.connectedServer:
+        while self.connectedServer == False:
             try:
                 self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             except socket.error, msg:
@@ -63,7 +64,9 @@ class ClientObj ():
         return serverStatus
 
     def GetFolderName(self):
+        print 'user input'
         name = raw_input("type name of folder")
+        print 'user input is ', name
         if os.path.isdir(name):
             return True
         else:
@@ -103,16 +106,20 @@ class ClientObj ():
 if __name__ == '__main__':
 
     Client = ClientObj()
-    job    = JobObj()
     
-    while true:
+    while True:
+        print 'client is trying to connect to server'
         Client.ServerConnect()
+        print 'client is connected'
+        print 'client is handshaking'
         Client.Handshake()
+        print 'handshake OK'
         
         while Client.connectedServer:
-            if Client.GetFolderName:
-                Client.TarFolder()
-                Client.FtpUpload()
+            print 'waiting for input'
+            gotInput = Client.GetFolderName()
+            if gotInput == True:
+                print 'all ok'
                 Client.SendTask()
             else:
                 time.sleep(3)

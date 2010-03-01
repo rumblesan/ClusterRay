@@ -74,11 +74,10 @@ class ClientThread(threading.Thread):
     def __init__(self, newSocket):
         self.client   = ClientObject(newSocket)
         self.running  = True
-        
-        threading.Thread.__init__.self
-        # create a thread for a particular socket
+        threading.Thread.__init__(self)
     
     def run(self):
+        self.client.SendServerStatus()
         while self.running:
             self.client.GetClientInfo()
             
@@ -87,12 +86,16 @@ class ClientObject():
 
     def __init__(self, newSocket):
         self.clientSocket = newSocket
-    
-    def GetClientInfo():
+
+    def SendServerStatus(self):
+        self.clientSocket.send('connected')
+
+    def GetClientInfo(self):
         fileName = self.clientSocket.recv(1024)
         tarFileName = fileName + '.tar.gz'
         ftpFile = os.path.join(os.getcwd(), 'files', tarFileName)
         if os.path.isfile(ftpFile):
+            print 'client sent file ', fileName
             taskQueue.put(fileName)
             
 
@@ -104,7 +107,7 @@ class TaskThread(threading.Thread):
         self.node    = TaskObject()
         self.running = True
         
-        threading.Thread.__init__.self
+        threading.Thread.__init__(self)
 
     def run(self):
         
@@ -147,14 +150,17 @@ class TaskObject():
     def CreateJobs(self):
         dif = 1.0 / self.jobSplitNum
         for job in range(self.jobSplitNum):
-            colStart = "+SC" + str(job * dif)
-            colEnd   = "+EC" + str((job + 1) * dif)
-            jobInfo = self.taskParams + " " + colStart + " " + colEnd
+            colStart = '+SC' + str(job * dif)
+            colEnd   = '+EC' + str((job + 1) * dif)
+            outputFileName = '+O' + self.taskFile + '_' + str((job + 1) * dif)
+            jobInfo = self.taskParams + ' ' + colStart + ' ' + colEnd + ' ' + outputFileName
+            print jobInfo
             jobQueue.put(jobInfo)
 
     def JoinImage(self):
         pass
         # Join image files together that have been uploaded to the ftp
+        
 
 
 class NodeThread(threading.Thread):
@@ -163,7 +169,7 @@ class NodeThread(threading.Thread):
         self.node    = NodeObject(newSocket)
         self.running = True
         
-        threading.Thread.__init__.self
+        threading.Thread.__init__(self)
         # create a thread for a particular socket
     
     def run(self):
@@ -171,7 +177,7 @@ class NodeThread(threading.Thread):
         while self.running:
         
             self.node.GetJob()
-            self.node.CreateJobs()
+            self.node.RunJob()
 
 
 class NodeObject():
@@ -193,6 +199,14 @@ class NodeObject():
         # try to get a job from the queue
         # sleep for 10 seconds if nothing available
 
+    def RunJob(self):
+        self.nodeSocket.send(self.jobParams)
+        jobRunning = True
+        while jobRunning:
+            jobStatus = self.nodeSocket.recv(1024)
+            if jobStatus == 'Completed':
+                jobQueue.task_done()
+                jobRunning = False
 
 
 if __name__ == '__main__':
@@ -206,16 +220,19 @@ if __name__ == '__main__':
     
     while True:
     
+        print 'Serving Network requests on port ', ClusterServer.serverPort
         ClusterServer.CreateSocket()
         
         while serverRunning:
 
-            newSocket = ClusterServer.serverSocket.accept()
-            
+            newSocket, address = ClusterServer.serverSocket.accept()
+            newSocket.setblocking(1)
             socketType = newSocket.recv(1024)
             
             if socketType == 'node':
+                print 'Node connection from ',address
                 NodeThread(newSocket).start()
             elif socketType == 'client':
+                print 'Client connection from ',address
                 ClientThread(newSocket).start()
 
