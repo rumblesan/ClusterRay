@@ -64,21 +64,21 @@ class ClientObj ():
         return serverStatus
 
     def GetFolderName(self):
-	    # Get foldername to send to server from user
-		# check that folder exists
-		# this is a pretty rubbish way of sending tasks
-		# need to come up with a better way
-		print 'Enter name of folder'
+        # Get foldername to send to server from user
+        # check that folder exists
+        # this is a pretty rubbish way of sending tasks
+        # need to come up with a better way
+        print 'Enter name of folder'
         name = raw_input('>>>   ')
         if os.path.isdir(name):
-		    print 'Folder ok, uploading now'
+            print 'Folder ok, uploading now'
             return True
         else:
             print 'This is not a folder'
             return False
 
     def SendTask(self):
-	    # send name of uploaded file to server
+        # send name of uploaded file to server
         self.serverSocket.send(self.folderName)
 
     def TarFolder(self):
@@ -93,8 +93,8 @@ class ClientObj ():
             return None
 
     def FtpUpload(self):
-	    # upload tar.gz file to the ftp server
-		# probablly want error checking
+        # upload tar.gz file to the ftp server
+        # probablly want error checking
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         fileHandle = open(self.tarName,'rb')
         ftpSocket.storbinary('STOR ' + self.tarName, fileHandle)
@@ -119,14 +119,14 @@ if __name__ == '__main__':
         
         while Client.connectedServer:
             if Client.GetFolderName():
-			    print 'Creating Tar file'
-				Client.TarFolder()
-				print 'Uploading to FTP server'
-				Client.FtpUpload()
-				print 'Sending server task name'
-				Client.SendTask()
-				# probablly want notification of when task is done
-				# possibly another thread so more jobs can be sent as well
+                print 'Creating Tar file'
+                Client.TarFolder()
+                print 'Uploading to FTP server'
+                Client.FtpUpload()
+                print 'Sending server task name'
+                Client.SendTask()
+                # probablly want notification of when task is done
+                # possibly another thread so more jobs can be sent as well
             else:
                 time.sleep(3)
 
