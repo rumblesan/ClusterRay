@@ -4,7 +4,7 @@
 import os
 import socket
 import time
-import tar
+import tarfile
 
 class NodeObj ():
 
@@ -12,8 +12,8 @@ class NodeObj ():
         # details of main server
         # will eventually be in cfg file
         # possibly host name based
-        self.serverIP        = "192.168.0.50"
-        self.serverPort      = 6007
+        self.serverIP        = '192.168.2.4'
+        self.serverPort      = 5007
 
         # network socket connected to server
         self.serverSocket    = None
@@ -23,7 +23,7 @@ class NodeObj ():
 
     def ServerConnect(self):
         # keep trying to connect to server
-        while !self.connectedServer:
+        while not self.connectedServer:
             try:
                 self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             except socket.error, msg:
@@ -59,14 +59,17 @@ class NodeObj ():
         # waits untill it gets a job
         checking = True
         while checking:
-            self.serverSocket.send('any jobs')
+            print 'checking for job status'
             jobStatus = self.serverSocket.recv(1024)
-            if jobStatus == 'available':
+            if jobStatus == 'jobs available':
+                print 'jobs available'
                 self.serverSocket.send('info')
                 jobInfo = self.serverSocket.recv(1024)
                 jobInfo = jobInfo.split('::')
                 job.jobFile = jobInfo[0]
                 job.jobParams = jobInfo[1]
+                print job.jobfile
+                print job.jobParams
                 checking = False
             else:
                 time.sleep(10)
@@ -106,6 +109,7 @@ class JobObj():
         pass
 
     def ReturnInfo(self):
+        pass
         # send job completion message back
         # format output of job program
         #send job information back
@@ -116,12 +120,17 @@ if __name__ == '__main__':
     clusterNode = NodeObj()
     job         = JobObj()
     
-    while true:
+    while True:
+        print 'trying to connect to server'
         clusterNode.ServerConnect()
+        print 'connected to server'
         clusterNode.Handshake()
+        print 'handshake ok'
         
         while clusterNode.connectedServer:
+            print 'checking for jobs'
             if clusterNode.CheckForJobs():
-                job.DownloadFile()
-                job.UntarFile()
-                job.RunTask()
+                 pass
+#                job.DownloadFile()
+#                job.UntarFile()
+#                job.RunTask()
