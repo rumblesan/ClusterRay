@@ -68,12 +68,25 @@ class NodeObj ():
                 jobInfo = jobInfo.split('::')
                 job.jobFile = jobInfo[0]
                 job.jobParams = jobInfo[1]
-                print job.jobfile
+                print job.jobFile
                 print job.jobParams
                 checking = False
             else:
                 time.sleep(10)
         return 1
+        
+    def CompletedTask(self):
+        self.serverSocket.send('Completed')
+        # send job completion message back
+        # format output of job program
+        # send job information back
+
+
+class JobObj():
+
+    def __init__(self):
+        self.jobParams    = ''
+        self.jobFile  = ''
 
     def DownloadFile(self):
         pass
@@ -87,7 +100,7 @@ class NodeObj ():
         tarFile.extractall('working')
         tarFile.close()
 
-    def RunTask(self):
+    def RunJob(self):
         pass
         # run povray from the command line
         # use self.jobParams as the arguments
@@ -97,22 +110,6 @@ class NodeObj ():
         # need to upload output files to ftp server
         # file params needs to define output file
         # also folder to upload to
-
-class JobObj():
-
-    def __init__(self):
-        self.jobParams    = ''
-        self.jobFileList  = ''
-    
-    def RunJob(self):
-        # run the job process
-        pass
-
-    def ReturnInfo(self):
-        pass
-        # send job completion message back
-        # format output of job program
-        #send job information back
 
 
 if __name__ == '__main__':
@@ -130,7 +127,8 @@ if __name__ == '__main__':
         while clusterNode.connectedServer:
             print 'checking for jobs'
             if clusterNode.CheckForJobs():
-                 pass
-#                job.DownloadFile()
-#                job.UntarFile()
-#                job.RunTask()
+                job.DownloadFile()
+                job.UntarFile()
+                job.RunJob()
+                clusterNode.CompletedTask()
+                
