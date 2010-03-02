@@ -18,7 +18,7 @@ class ClientObj ():
         
         self.ftpServer       = self.serverIP
         self.ftpUser         = 'client'
-        self.ftpPass         = 'client'
+        self.ftpPass         = 'cluster'
 
         self.folderName      = ''
         self.tarName         = ''
@@ -72,6 +72,7 @@ class ClientObj ():
         name = raw_input('>>>   ')
         if os.path.isdir(name):
             print 'Folder ok, uploading now'
+            self.folderName = name
             return True
         else:
             print 'This is not a folder'
