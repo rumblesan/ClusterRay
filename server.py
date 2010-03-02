@@ -12,8 +12,6 @@ import tarfile
 jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
 
-
-
 class ServerObj():
 
     def __init__(self):
@@ -123,7 +121,7 @@ class TaskThread(threading.Thread):
             self.node.CreateJobs()
             print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
-            self.JoinImages()
+            self.node.JoinImages()
             
 
 class TaskObject():
@@ -146,8 +144,8 @@ class TaskObject():
 
     def ReadParams(self):
         self.tarName = self.taskFile + '.tar.gz'
-        tarFile = tarfile.open(self.tarName, mode = 'w:gz')
-        tarFile.extractall('temp')
+        tarFile = tarfile.open(self.tarName, mode = 'r:gz')
+        tarFile.extractall('./temp/')
         tarFile.close()
         paramFile = open(os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg'))
         self.taskParams = paramFile.read()
@@ -163,7 +161,7 @@ class TaskObject():
             print jobInfo
             jobQueue.put(jobInfo)
 
-    def JoinImage(self):
+    def JoinImages(self):
         pass
         # Join image files together that have been uploaded to the ftp
         
@@ -173,14 +171,13 @@ class NodeThread(threading.Thread):
 
     def __init__(self, newSocket):
         self.node    = NodeObject(newSocket)
-        self.running = True
         
         threading.Thread.__init__(self)
         # create a thread for a particular socket
     
     def run(self):
-        self.node.Handshake()
-        while self.running:
+        self.node.running = self.node.Handshake()
+        while self.node.running:
             self.node.GetJob()
             self.node.RunJob()
 
@@ -190,26 +187,32 @@ class NodeObject():
     def __init__(self, newSocket):
         self.nodeSocket = newSocket
         self.jobParams  = None
+        self.running    = False
 
     def Handshake(self):
-        self.nodeSocket.send('connected')
+        connectCheck = self.nodeSocket.send('connected')
+        if connectCheck == 0:
+            return False
+        else:
+            return True
+        
 
     def GetJob(self):
         queueing = True
         while queueing:
+            print 'node thread looking for jobs'
             jobInfo = jobQueue.get()
-            if jobInfo != None:
-                self.jobParams = jobInfo
-                queueing = False
-            else:
-                time.sleep(10)
-        
-        # try to get a job from the queue
-        # sleep for 10 seconds if nothing available
+            print 'node thread looking for jobs'
+            self.jobParams = jobInfo
+            queueing = False
 
     def RunJob(self):
-        self.nodeSocket.send('jobs available')
+        print 'node thread running job perhaps'
+        elf.nodeSocket.send('jobs available')
         nodeInfo = self.nodeSocket.recv(1024)
+        if nodeInfo == '':
+            self.running = False
+            return False
         if nodeInfo == 'info':
             self.nodeSocket.send(self.jobParams)
             jobRunning = True
