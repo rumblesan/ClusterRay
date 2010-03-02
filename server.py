@@ -7,7 +7,7 @@ import threading
 import Queue
 import time
 import ftpserver
-import re
+import tarfile
 
 jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
@@ -52,6 +52,7 @@ class FtpThread(threading.Thread):
 
         fileFolder = os.path.join(os.getcwd(), 'files')
         authorizer.add_user('node', 'cluster', fileFolder, perm='elradfmw')
+        authorizer.add_user('client', 'cluster', fileFolder, perm='elradfmw')
 
         ftp_handler = ftpserver.FTPHandler
         ftp_handler.authorizer = authorizer
@@ -97,6 +98,7 @@ class ClientObject():
         if os.path.isfile(ftpFile):
             print 'Client sent file ', fileName
             taskQueue.put(fileName)
+            print 'task put in queue'
         else:
             print 'No file can be found for ', fileName
 
@@ -104,7 +106,7 @@ class ClientObject():
 
 class TaskThread(threading.Thread):
 
-    def __init__(self, newSocket):
+    def __init__(self):
         self.node    = TaskObject()
         self.running = True
         
@@ -113,18 +115,20 @@ class TaskThread(threading.Thread):
     def run(self):
         
         while self.running:
-        
+            print 'Task Thread: waiting for task'
             self.node.GetTask()
+            print 'Task Thread: got task ', self.node.taskFile
             self.node.ReadParams()
-            self.CreateJobs()
+            print 'Task Thread: creating jobs'
+            self.node.CreateJobs()
+            print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
             self.JoinImages()
             
 
 class TaskObject():
 
-    def __init__(self, newSocket):
-        self.nodeSocket    = newSocket
+    def __init__(self):
         self.jobParams     = None
         self.taskFile      = None
         self.taskParams    = None
@@ -133,7 +137,7 @@ class TaskObject():
     def GetTask(self):
         queueing = True
         while queueing:
-            taskInfo = taskQueue.Get(True)
+            taskInfo = taskQueue.get()
             if taskInfo != None:
                 self.taskFile = taskInfo
                 queueing = False
@@ -145,8 +149,9 @@ class TaskObject():
         tarFile = tarfile.open(self.tarName, mode = 'w:gz')
         tarFile.extractall('temp')
         tarFile.close()
-        paramFile = fileFolder = os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg')
+        paramFile = open(os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg'))
         self.taskParams = paramFile.read()
+        print 'Task Thread: task params ', self.taskParams
 
     def CreateJobs(self):
         dif = 1.0 / self.jobSplitNum
@@ -154,7 +159,7 @@ class TaskObject():
             colStart = '+SC' + str(job * dif)
             colEnd   = '+EC' + str((job + 1) * dif)
             outputFileName = '+O' + self.taskFile + '_' + str((job + 1) * dif)
-            jobInfo = self.taskParams + ' ' + colStart + ' ' + colEnd + ' ' + outputFileName
+            jobInfo = self.taskFile + '::' + self.taskParams + ' ' + colStart + ' ' + colEnd + ' ' + outputFileName
             print jobInfo
             jobQueue.put(jobInfo)
 
@@ -174,9 +179,8 @@ class NodeThread(threading.Thread):
         # create a thread for a particular socket
     
     def run(self):
-        
+        self.node.Handshake()
         while self.running:
-        
             self.node.GetJob()
             self.node.RunJob()
 
@@ -187,10 +191,13 @@ class NodeObject():
         self.nodeSocket = newSocket
         self.jobParams  = None
 
+    def Handshake(self):
+        self.nodeSocket.send('connected')
+
     def GetJob(self):
         queueing = True
         while queueing:
-            jobInfo = jobQueue.Get()
+            jobInfo = jobQueue.get()
             if jobInfo != None:
                 self.jobParams = jobInfo
                 queueing = False
@@ -201,13 +208,16 @@ class NodeObject():
         # sleep for 10 seconds if nothing available
 
     def RunJob(self):
-        self.nodeSocket.send(self.jobParams)
-        jobRunning = True
-        while jobRunning:
-            jobStatus = self.nodeSocket.recv(1024)
-            if jobStatus == 'Completed':
-                jobQueue.task_done()
-                jobRunning = False
+        self.nodeSocket.send('jobs available')
+        nodeInfo = self.nodeSocket.recv(1024)
+        if nodeInfo == 'info':
+            self.nodeSocket.send(self.jobParams)
+            jobRunning = True
+            while jobRunning:
+                jobStatus = self.nodeSocket.recv(1024)
+                if jobStatus == 'Completed':
+                    jobQueue.task_done()
+                    jobRunning = False
 
 
 if __name__ == '__main__':
@@ -218,6 +228,7 @@ if __name__ == '__main__':
     serverRunning = True
     
     FtpThread().start()
+    TaskThread().start()
     
     while True:
     
