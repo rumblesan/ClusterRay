@@ -6,6 +6,7 @@ import socket
 import time
 import tarfile
 import ftplib
+import shutil
 
 class NodeObj ():
 
@@ -76,9 +77,6 @@ class NodeObj ():
                 self.jobFile = jobInfo[0]
                 self.outputFile = jobInfo[1]
                 self.jobParams = jobInfo[2]
-                print self.jobFile
-                print self.outputFile
-                print self.jobParams
                 checking = False
             else:
                 time.sleep(10)
@@ -88,17 +86,22 @@ class NodeObj ():
         # download tar.gz file from the ftp server
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         tarName = self.jobFile + '.tar.gz'
-        ftpSocket.retrbinary("RETR " + tarName, tarName.write)
+        tarFile = open(tarName,"wb")
+        ftpSocket.retrbinary("RETR " + tarName, tarFile.write)
+        tarFile.close()
         ftpSocket.quit()
         
     def UntarFile(self):
         tarName = self.jobFile + '.tar.gz'
         tarFile = tarfile.open(tarName, mode = 'r:gz')
-        tarFile.extractall('node')
+        tarFile.extractall('nodetemp')
         tarFile.close()
+        os.remove(tarName)
         
     def RunJob(self):
-        output = os.system(self.jobParams)
+        print 'this is where i will do the job'
+        # output = os.system(self.jobParams)
+        # print output
         # run povray from the command line
         # use self.jobParams as the arguments
         
@@ -114,6 +117,8 @@ class NodeObj ():
         ftpSocket.quit()
         
     def CompletedTask(self):
+        tempFiles = os.path.join(os.getcwd(), 'nodetemp', self.jobFile)
+        shutil.rmtree(tempFiles)
         self.serverSocket.send('Completed')
         # send job completion message back
         # format output of job program
@@ -123,6 +128,10 @@ class NodeObj ():
 if __name__ == '__main__':
 
     clusterNode = NodeObj()
+    
+    tempFolder = os.path.join(os.getcwd(), 'nodetemp')
+    if not os.path.exists(tempFolder):
+        os.mkdir(tempFolder)
     
     while True:
         print 'trying to connect to server'
