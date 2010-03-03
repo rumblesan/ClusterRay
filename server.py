@@ -6,6 +6,7 @@ import socket
 import threading
 import Queue
 import time
+import shutil
 import ftpserver
 import tarfile
 
@@ -48,9 +49,12 @@ class FtpThread(threading.Thread):
 
         authorizer = ftpserver.DummyAuthorizer()
 
-        fileFolder = os.path.join(os.getcwd(), 'files')
-        authorizer.add_user('node', 'cluster', fileFolder, perm='elradfmw')
-        authorizer.add_user('client', 'cluster', fileFolder, perm='elradfmw')
+        ftpFolder = os.path.join(os.getcwd(), 'files')
+        if not os.path.exists(ftpFolder):
+            os.mkdir(ftpFolder)
+        
+        authorizer.add_user('node', 'cluster', ftpFolder, perm='elradfmw')
+        authorizer.add_user('client', 'cluster', ftpFolder, perm='elradfmw')
 
         ftp_handler = ftpserver.FTPHandler
         ftp_handler.authorizer = authorizer
@@ -91,6 +95,8 @@ class ClientObject():
 
     def GetClientInfo(self):
         fileName = self.clientSocket.recv(1024)
+        print fileName
+        print 'should have the filename here'
         tarFileName = fileName + '.tar.gz'
         ftpFile = os.path.join(os.getcwd(), 'files', tarFileName)
         if os.path.isfile(ftpFile):
@@ -98,7 +104,8 @@ class ClientObject():
             taskQueue.put(fileName)
             print 'task put in queue'
         else:
-            print 'No file can be found for ', fileName
+            pass
+            #print 'No file can be found for ', fileName
 
 
 
@@ -122,6 +129,7 @@ class TaskThread(threading.Thread):
             print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
             self.node.JoinImages()
+            self.node.TaskComplete()
             
 
 class TaskObject():
@@ -143,38 +151,48 @@ class TaskObject():
                 time.sleep(10)
 
     def ReadParams(self):
-        self.tarName = self.taskFile + '.tar.gz'
+        self.tarName = os.path.join(os.getcwd(), 'files', self.taskFile + '.tar.gz')
         tarFile = tarfile.open(self.tarName, mode = 'r:gz')
-        tarFile.extractall('./temp/')
+        tarFile.extractall('temp')
         tarFile.close()
         paramFile = open(os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg'))
         self.taskParams = paramFile.read()
+        paramFile.close()
+        tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
+        shutil.rmtree(tempDir)
         print 'Task Thread: task params ', self.taskParams
+        tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
+        if not os.path.exists(tempImagesDir):
+            os.mkdir(tempImagesDir)
 
     def CreateJobs(self):
         dif = 1.0 / self.jobSplitNum
         for job in range(self.jobSplitNum):
             colStart = '+SC' + str(job * dif)
             colEnd   = '+EC' + str((job + 1) * dif)
-            outputFileName = '+O' + self.taskFile + '_' + str((job + 1) * dif)
-            jobInfo = self.taskFile + '::' + self.taskParams + ' ' + colStart + ' ' + colEnd + ' ' + outputFileName
+            outputFileName = self.taskFile + '_' + str((job + 1) * dif)
+            jobInfo = self.taskFile + '::' + outputFileName + '::' + self.taskParams + ' ' + colStart + ' ' + colEnd + ' ' + '+O' + outputFileName
             print jobInfo
             jobQueue.put(jobInfo)
 
     def JoinImages(self):
         pass
         # Join image files together that have been uploaded to the ftp
-        
+
+    def TaskComplete(self):
+        pass
+        # Cleans up temp files and then does something with the picture
+        # emails, twitters, posts to flickr etc etc
+
 
 
 class NodeThread(threading.Thread):
 
     def __init__(self, newSocket):
         self.node    = NodeObject(newSocket)
-        
         threading.Thread.__init__(self)
         # create a thread for a particular socket
-    
+
     def run(self):
         self.node.running = self.node.Handshake()
         while self.node.running:
@@ -195,7 +213,6 @@ class NodeObject():
             return False
         else:
             return True
-        
 
     def GetJob(self):
         queueing = True
@@ -208,7 +225,7 @@ class NodeObject():
 
     def RunJob(self):
         print 'node thread running job perhaps'
-        elf.nodeSocket.send('jobs available')
+        self.nodeSocket.send('jobs available')
         nodeInfo = self.nodeSocket.recv(1024)
         if nodeInfo == '':
             self.running = False
@@ -229,6 +246,10 @@ if __name__ == '__main__':
     
     ClusterServer = ServerObj()
     serverRunning = True
+    
+    tempFolder = os.path.join(os.getcwd(), 'temp')
+    if not os.path.exists(tempFolder):
+        os.mkdir(tempFolder)
     
     FtpThread().start()
     TaskThread().start()
