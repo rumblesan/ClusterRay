@@ -37,7 +37,6 @@ class ClientObj ():
             except socket.error, msg:
                 time.sleep(2)
                 continue
-
             try:
                 self.serverSocket.connect((self.serverIP,self.serverPort))
             except socket.error, msg:
@@ -45,7 +44,6 @@ class ClientObj ():
                 self.serverSocket = None
                 time.sleep(2)
                 continue
-
             self.serverSocket.setblocking(1)
             self.connectedServer = True
 
@@ -78,10 +76,6 @@ class ClientObj ():
             print 'This is not a folder'
             return False
 
-    def SendTask(self):
-        # send name of uploaded file to server
-        self.serverSocket.send(self.folderName)
-
     def TarFolder(self):
         # put chosen folder into a gzipped tar file
         self.tarName = self.folderName + '.tar.gz'
@@ -101,7 +95,11 @@ class ClientObj ():
         ftpSocket.storbinary('STOR ' + self.tarName, fileHandle)
         fileHandle.close()
         ftpSocket.quit()
+        os.remove(self.tarName)
 
+    def SendTask(self):
+        # send name of uploaded file to server
+        self.serverSocket.send(self.folderName)
 
 
 
