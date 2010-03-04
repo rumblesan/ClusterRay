@@ -140,11 +140,12 @@ class TaskObject():
         self.jobParams     = None
         self.taskFile      = None
         self.taskParams    = None
-        self.jobSplitNum   = 8
         self.tempImagesDir = None
         
+        self.jobNumber   = None
         self.inputFile     = None
         self.outputFile    = None
+        self.renderType    = None
         self.imageHeight   = None
         self.imageWidth    = None
         self.otherParams   = None
@@ -170,8 +171,12 @@ class TaskObject():
             line,params = line.split(':')
             if line == 'inputFile':
                 self.inputFile   = params
-            if line == 'outputFile':
+            elif line == 'outputFile':
                 self.outputFile   = params
+            elif line == 'jobNumber':
+                self.jobNumber   = params
+            elif line == 'renderType':
+                self.renderType   = params
             elif line == 'imageHeight':
                 self.imageHeight = params
             elif line == 'imageWidth':
@@ -189,26 +194,30 @@ class TaskObject():
             os.mkdir(self.tempImagesDir)
 
     def CreateJobs(self):
-        dif = 1.0 / self.jobSplitNum
-        for job in range(self.jobSplitNum):
-        
-            colStart = str(job * dif)
-            colEnd   = str((job + 1) * dif)
-            outputFileName = self.outputFile + '_' + str((job) * dif)
+        if self.renderType == 'picture':
+            dif = 1.0 / self.jobNumber
+            for job in range(self.jobNumber):
             
-            paramsList = []
-            paramsList.append('+I'  + self.inputFile)
-            paramsList.append('+O'  + outputFileName)
-            paramsList.append('+SC' + colStart)
-            paramsList.append('+EC' + colEnd)
-            paramsList.append(otherParams)
-            
-            jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
-            print jobInfo
-            jobQueue.put(jobInfo)
+                colStart = str(job * dif)
+                colEnd   = str((job + 1) * dif)
+                outputFileName = self.outputFile + '_' + str((job) * dif)
+                
+                paramsList = []
+                paramsList.append('+I'  + self.inputFile)
+                paramsList.append('+O'  + outputFileName)
+                paramsList.append('+SC' + colStart)
+                paramsList.append('+EC' + colEnd)
+                paramsList.append(otherParams)
+                
+                jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
+                print jobInfo
+                jobQueue.put(jobInfo)
+        elif self.renderType == 'video':
+            pass
+            #other stuff here for rendering videos
 
     def JoinImages(self):
-        posDiff = self.imageWidth / self.jobSplitNum
+        posDiff = self.imageWidth / self.jobNumber
         mainDir = os.cwd()
         os.chdir(self.tempImagesDir)
         blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
