@@ -130,30 +130,29 @@ class TaskThread(threading.Thread):
             self.node.CreateJobs()
             print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
-            self.node.JoinImages()
+            #self.node.JoinImages()
             self.node.TaskComplete()
             
 
 class TaskObject():
 
     def __init__(self):
-        self.jobParams     = None
-        self.taskFile      = None
-        self.taskParams    = None
-        self.tempImagesDir = None
+        self.taskFile      = ''
+        self.tempImagesDir = ''
         
-        self.jobNumber   = None
-        self.inputFile     = None
-        self.outputFile    = None
-        self.renderType    = None
-        self.imageHeight   = None
-        self.imageWidth    = None
-        self.otherParams   = None
+        self.jobNumber     = ''
+        self.inputFile     = ''
+        self.outputFile    = ''
+        self.renderType    = ''
+        self.imageHeight   = ''
+        self.imageWidth    = ''
+        self.otherParams   = ''
 
     def GetTask(self):
         queueing = True
         while queueing:
             taskInfo = taskQueue.get()
+            print 'task queue gots'
             if taskInfo != None:
                 self.taskFile = taskInfo
                 queueing = False
@@ -168,19 +167,20 @@ class TaskObject():
         
         paramFile = open(os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg'))
         for line in paramFile:
+            line = line.rstrip()
             line,params = line.split(':')
             if line == 'inputFile':
                 self.inputFile   = params
             elif line == 'outputFile':
                 self.outputFile   = params
             elif line == 'jobNumber':
-                self.jobNumber   = params
+                self.jobNumber   = int(params)
             elif line == 'renderType':
                 self.renderType   = params
             elif line == 'imageHeight':
-                self.imageHeight = params
+                self.imageHeight = int(params)
             elif line == 'imageWidth':
-                self.imageWidth = params
+                self.imageWidth = int(params)
             elif line == 'otherParams':
                 self.otherParams = params
 
@@ -188,14 +188,16 @@ class TaskObject():
         
         tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
         shutil.rmtree(tempDir)
-        print 'Task Thread: task params ', self.taskParams
+        print 'Task Thread: read param'
         self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
 
     def CreateJobs(self):
+        print 'should read picture', self.renderType
         if self.renderType == 'picture':
             dif = 1.0 / self.jobNumber
+            print 'function to create jobs'
             for job in range(self.jobNumber):
             
                 colStart = str(job * dif)
@@ -207,18 +209,20 @@ class TaskObject():
                 paramsList.append('+O'  + outputFileName)
                 paramsList.append('+SC' + colStart)
                 paramsList.append('+EC' + colEnd)
-                paramsList.append(otherParams)
+                paramsList.append(self.otherParams)
                 
                 jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
                 print jobInfo
                 jobQueue.put(jobInfo)
         elif self.renderType == 'video':
             pass
+        else:
+            print 'wasnt picture'
             #other stuff here for rendering videos
 
     def JoinImages(self):
         posDiff = self.imageWidth / self.jobNumber
-        mainDir = os.cwd()
+        mainDir = os.getcwd()
         os.chdir(self.tempImagesDir)
         blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
         
