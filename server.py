@@ -139,6 +139,7 @@ class TaskObject():
         self.taskFile      = None
         self.taskParams    = None
         self.jobSplitNum   = 8
+        self.tempImagesDir = None
 
     def GetTask(self):
         queueing = True
@@ -161,9 +162,9 @@ class TaskObject():
         tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
         shutil.rmtree(tempDir)
         print 'Task Thread: task params ', self.taskParams
-        tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
-        if not os.path.exists(tempImagesDir):
-            os.mkdir(tempImagesDir)
+        self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
+        if not os.path.exists(self.tempImagesDir):
+            os.mkdir(self.tempImagesDir)
 
     def CreateJobs(self):
         dif = 1.0 / self.jobSplitNum
@@ -176,7 +177,20 @@ class TaskObject():
             jobQueue.put(jobInfo)
 
     def JoinImages(self):
-        pass
+        pictureWidth = 1024
+        pictureHeight = 768
+        posTuple = (pictureWidth / 8, 0)
+        mainDir = os.cwd()
+        os.chdir(self.tempImagesDir)
+        blankCanvas = Image.new('RGB',(pictureWidth,pictureHeight))
+        
+        for inFile in glob.glob(self.taskFile + '_*.png')
+            file, ext = os.path.splitext(infile)
+            taskName,fileNumber = file.split('_')
+            section = Image.open(infile)
+            blankCanvas.paste(section,posTuple * int(fileNumber))
+        blankCanvas.save(self.taskFile,'PNG2')
+        os.chdir(mainDir)
         # Join image files together that have been uploaded to the ftp
 
     def TaskComplete(self):
