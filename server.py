@@ -9,6 +9,8 @@ import time
 import shutil
 import ftpserver
 import tarfile
+import glob
+from PIL import Image
 
 jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
@@ -140,6 +142,12 @@ class TaskObject():
         self.taskParams    = None
         self.jobSplitNum   = 8
         self.tempImagesDir = None
+        
+        self.inputFile     = None
+        self.outputFile    = None
+        self.imageHeight   = None
+        self.imageWidth    = None
+        self.otherParams   = None
 
     def GetTask(self):
         queueing = True
@@ -156,9 +164,23 @@ class TaskObject():
         tarFile = tarfile.open(self.tarName, mode = 'r:gz')
         tarFile.extractall('temp')
         tarFile.close()
+        
         paramFile = open(os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg'))
-        self.taskParams = paramFile.read()
+        for line in paramFile:
+            line,params = line.split(':')
+            if line == 'inputFile':
+                self.inputFile   = params
+            if line == 'outputFile':
+                self.outputFile   = params
+            elif line == 'imageHeight':
+                self.imageHeight = params
+            elif line == 'imageWidth':
+                self.imageWidth = params
+            elif line == 'otherParams':
+                self.otherParams = params
+
         paramFile.close()
+        
         tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
         shutil.rmtree(tempDir)
         print 'Task Thread: task params ', self.taskParams
@@ -169,27 +191,34 @@ class TaskObject():
     def CreateJobs(self):
         dif = 1.0 / self.jobSplitNum
         for job in range(self.jobSplitNum):
-            colStart = '+SC' + str(job * dif)
-            colEnd   = '+EC' + str((job + 1) * dif)
-            outputFileName = self.taskFile + '_' + str((job + 1) * dif)
-            jobInfo = self.taskFile + '::' + outputFileName + '::' + self.taskParams + ' ' + colStart + ' ' + colEnd + ' ' + '+O' + outputFileName
+        
+            colStart = str(job * dif)
+            colEnd   = str((job + 1) * dif)
+            outputFileName = self.outputFile + '_' + str((job) * dif)
+            
+            paramsList = []
+            paramsList.append('+I'  + self.inputFile)
+            paramsList.append('+O'  + outputFileName)
+            paramsList.append('+SC' + colStart)
+            paramsList.append('+EC' + colEnd)
+            paramsList.append(otherParams)
+            
+            jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
             print jobInfo
             jobQueue.put(jobInfo)
 
     def JoinImages(self):
-        pictureWidth = 1024
-        pictureHeight = 768
-        posTuple = (pictureWidth / 8, 0)
+        posDiff = self.imageWidth / self.jobSplitNum
         mainDir = os.cwd()
         os.chdir(self.tempImagesDir)
-        blankCanvas = Image.new('RGB',(pictureWidth,pictureHeight))
+        blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
         
-        for inFile in glob.glob(self.taskFile + '_*.png')
-            file, ext = os.path.splitext(infile)
+        for inFile in glob.glob(self.outputFile + '_*.png'):
+            file, ext = os.path.splitext(inFile)
             taskName,fileNumber = file.split('_')
-            section = Image.open(infile)
-            blankCanvas.paste(section,posTuple * int(fileNumber))
-        blankCanvas.save(self.taskFile,'PNG2')
+            section = Image.open(inFile)
+            blankCanvas.paste(section,(posDiff * int(fileNumber),0))
+        blankCanvas.save(self.outputFile + '.png','PNG')
         os.chdir(mainDir)
         # Join image files together that have been uploaded to the ftp
 
