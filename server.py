@@ -114,7 +114,7 @@ class ClientObject():
 class TaskThread(threading.Thread):
 
     def __init__(self):
-        self.node    = TaskObject()
+        self.Task    = TaskObject()
         self.running = True
         
         threading.Thread.__init__(self)
@@ -123,15 +123,15 @@ class TaskThread(threading.Thread):
         
         while self.running:
             print 'Task Thread: waiting for task'
-            self.node.GetTask()
-            print 'Task Thread: got task ', self.node.taskFile
-            self.node.ReadParams()
+            self.Task.GetTask()
+            print 'Task Thread: got task ', self.Task.taskFile
+            self.Task.ReadParams()
             print 'Task Thread: creating jobs'
-            self.node.CreateJobs()
+            self.Task.CreateJobs()
             print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
             #self.node.JoinImages()
-            self.node.TaskComplete()
+            self.Task.TaskComplete()
             
 
 class TaskObject():
@@ -217,8 +217,7 @@ class TaskObject():
         elif self.renderType == 'video':
             pass
         else:
-            print 'wasnt picture'
-            #other stuff here for rendering videos
+            print 'wasnt anything'
 
     def JoinImages(self):
         posDiff = self.imageWidth / self.jobNumber
