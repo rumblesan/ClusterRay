@@ -14,7 +14,7 @@ class NodeObj ():
         # details of main server
         # will eventually be in cfg file
         # possibly host name based
-        self.serverIP        = '192.168.2.4'
+        self.serverIP        = '192.168.2.14'
         self.serverPort      = 5007
         self.serverSocket    = None
 
@@ -99,9 +99,8 @@ class NodeObj ():
         os.remove(tarName)
         
     def RunJob(self):
-        print 'this is where i will do the job'
-        # output = os.system(self.jobParams)
-        # print output
+        output = os.system(self.jobParams)
+        print output
         # run povray from the command line
         # use self.jobParams as the arguments
         
