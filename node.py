@@ -86,12 +86,14 @@ class NodeObj ():
         # download tar.gz file from the ftp server
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         tarName = self.jobFile + '.tar.gz'
+        print 'downloading from ftp', tarName
         tarFile = open(tarName,"wb")
         ftpSocket.retrbinary("RETR " + tarName, tarFile.write)
         tarFile.close()
         ftpSocket.quit()
         
     def UntarFile(self):
+        print 'untarring file'
         tarName = self.jobFile + '.tar.gz'
         tarFile = tarfile.open(tarName, mode = 'r:gz')
         tarFile.extractall('nodetemp')
@@ -99,19 +101,30 @@ class NodeObj ():
         os.remove(tarName)
         
     def RunJob(self):
-        output = os.system(self.jobParams)
+        mainDir = os.getcwd()
+        jobDir = os.path.join(os.getcwd(), 'nodetemp', self.jobFile)
+        os.chdir(jobDir)
+        running = 'povray ' + self.jobParams
+        print 'running job now'
+        print running
+        output = os.system(running)
         print output
+        os.rename(self.outputFile,self.outputFile + '.png')
+        os.chdir(mainDir)
         # run povray from the command line
         # use self.jobParams as the arguments
+       
         
     def UploadOutputFile(self):
         # upload tar.gz file to the ftp server
         # probablly want error checking
+        print 
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         ftpDirFolder = self.jobFile + 'images'
         ftpSocket.cwd(ftpDirFolder)
-        fileHandle = open(self.outputFile,'rb')
-        ftpSocket.storbinary('STOR ' + self.outputFile, fileHandle)
+        uploadFile = os.path.join(os.getcwd(), 'nodetemp', self.jobFile, self.outputFile + '.png')
+        fileHandle = open(uploadFile,'rb')
+        ftpSocket.storbinary('STOR ' + self.outputFile + '.png', fileHandle)
         fileHandle.close()
         ftpSocket.quit()
         
@@ -145,5 +158,6 @@ if __name__ == '__main__':
                 clusterNode.FtpDownload()
                 clusterNode.UntarFile()
                 clusterNode.RunJob()
+                clusterNode.UploadOutputFile()
                 clusterNode.CompletedTask()
                 
