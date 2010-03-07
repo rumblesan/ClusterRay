@@ -111,6 +111,141 @@ class ClientObject():
 
 
 
+
+class PicJobGen():
+
+    def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
+        self.taskFile      = TaskFile
+
+        self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
+        if not os.path.exists(self.tempImagesDir):
+            os.mkdir(self.tempImagesDir)
+        
+        self.jobNumber     = JobNumber
+        self.inputFile     = InputFile
+        self.outputFile    = OutputFile
+        self.imageHeight   = Height
+        self.imageWidth    = Width
+        self.otherParams   = Other
+    
+    def CreateJobs(self):
+        dif = 1.0 / self.jobNumber
+        print 'function to create jobs'
+        for job in range(self.jobNumber):
+        
+            colStart = str(job * dif)
+            colEnd   = str((job + 1) * dif)
+            outputFileName = self.outputFile + '_' + str((job) * dif)
+            
+            paramsList = []
+            paramsList.append('+I'  + self.inputFile)
+            paramsList.append('+O'  + outputFileName)
+            paramsList.append('+SC' + colStart)
+            paramsList.append('+EC' + colEnd)
+            paramsList.append('+H'  + str(self.imageHeight))
+            paramsList.append('+W'  + str(self.imageWidth))
+            paramsList.append(self.otherParams)
+            
+            jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
+            print jobInfo
+            jobQueue.put(jobInfo)
+    
+    def TaskFinish(self):
+        mainDir = os.getcwd()
+        os.chdir(self.tempImagesDir)
+        widthDiff = self.imageWidth / self.jobNumber
+        blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
+        
+        for inFile in glob.glob(self.outputFile + '_*.png'):
+            file, ext = os.path.splitext(inFile)
+            print 'slice join name',file
+            taskName,fileNumber = file.split('_')
+            section = Image.open(inFile)
+            xval = int(self.imageWidth * float(fileNumber))
+            slicepos = (xval,0,xval + widthDiff,self.imageHeight)
+            print 'slice pos',slicepos
+            imageSlice = section.crop(slicepos)
+            blankCanvas.paste(imageSlice,slicepos)
+        blankCanvas.save(self.outputFile + '.png','PNG')
+        os.chdir(mainDir)
+        # Join image files together that have been uploaded to the ftp
+
+
+
+    def TaskCleanUp(self):
+        tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
+        shutil.rmtree(tempDir)
+        # Cleans up temp files and then does something with the picture
+        # emails, twitters, posts to flickr etc etc
+        
+
+class MovJobGen():
+
+    def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
+        self.taskFile      = TaskFile
+
+        self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
+        if not os.path.exists(self.tempImagesDir):
+            os.mkdir(self.tempImagesDir)
+        
+        self.jobNumber     = JobNumber
+        self.inputFile     = InputFile
+        self.outputFile    = OutputFile
+        self.imageHeight   = Height
+        self.imageWidth    = Width
+        self.otherParams   = Other
+    
+    def CreateJobs(self):
+        dif = 1.0 / self.jobNumber
+        print 'function to create jobs'
+        for job in range(self.jobNumber):
+        
+            colStart = str(job * dif)
+            colEnd   = str((job + 1) * dif)
+            outputFileName = self.outputFile + '_' + str((job) * dif)
+            
+            paramsList = []
+            paramsList.append('+I'  + self.inputFile)
+            paramsList.append('+O'  + outputFileName)
+            paramsList.append('+SC' + colStart)
+            paramsList.append('+EC' + colEnd)
+            paramsList.append('+H'  + str(self.imageHeight))
+            paramsList.append('+W'  + str(self.imageWidth))
+            paramsList.append(self.otherParams)
+            
+            jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
+            print jobInfo
+            jobQueue.put(jobInfo)
+    
+    def TaskFinish(self):
+        mainDir = os.getcwd()
+        os.chdir(self.tempImagesDir)
+        widthDiff = self.imageWidth / self.jobNumber
+        blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
+        
+        for inFile in glob.glob(self.outputFile + '_*.png'):
+            file, ext = os.path.splitext(inFile)
+            print 'slice join name',file
+            taskName,fileNumber = file.split('_')
+            section = Image.open(inFile)
+            xval = int(self.imageWidth * float(fileNumber))
+            slicepos = (xval,0,xval + widthDiff,self.imageHeight)
+            print 'slice pos',slicepos
+            imageSlice = section.crop(slicepos)
+            blankCanvas.paste(imageSlice,slicepos)
+        blankCanvas.save(self.outputFile + '.png','PNG')
+        os.chdir(mainDir)
+        # Join image files together that have been uploaded to the ftp
+
+
+
+    def TaskCleanUp(self):
+        tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
+        shutil.rmtree(tempDir)
+        # Cleans up temp files and then does something with the picture
+        # emails, twitters, posts to flickr etc etc
+
+
 class TaskThread(threading.Thread):
 
     def __init__(self):
@@ -127,11 +262,11 @@ class TaskThread(threading.Thread):
             print 'Task Thread: got task ', self.Task.taskFile
             self.Task.ReadParams()
             print 'Task Thread: creating jobs'
-            self.Task.CreateJobs()
+            self.Task.jobCreator.CreateJobs()
             print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
-            self.Task.JoinImages()
-            self.Task.TaskComplete()
+            self.Task.jobCreator.TaskFinish()
+            self.Task.jobCreator.TaskCleanUp()
             
 
 class TaskObject():
@@ -147,6 +282,8 @@ class TaskObject():
         self.imageHeight   = ''
         self.imageWidth    = ''
         self.otherParams   = ''
+        
+        self.jobCreator    = None
 
     def GetTask(self):
         queueing = True
@@ -185,66 +322,12 @@ class TaskObject():
                 self.otherParams = params
 
         paramFile.close()
-        
-        tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
-        shutil.rmtree(tempDir)
-        print 'Task Thread: read param'
-        self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
-        if not os.path.exists(self.tempImagesDir):
-            os.mkdir(self.tempImagesDir)
 
-    def CreateJobs(self):
-        print 'should read picture', self.renderType
         if self.renderType == 'picture':
-            dif = 1.0 / self.jobNumber
-            print 'function to create jobs'
-            for job in range(self.jobNumber):
-            
-                colStart = str(job * dif)
-                colEnd   = str((job + 1) * dif)
-                outputFileName = self.outputFile + '_' + str((job) * dif)
-                
-                paramsList = []
-                paramsList.append('+I'  + self.inputFile)
-                paramsList.append('+O'  + outputFileName)
-                paramsList.append('+SC' + colStart)
-                paramsList.append('+EC' + colEnd)
-                paramsList.append('+H'  + str(self.imageHeight))
-                paramsList.append('+W'  + str(self.imageWidth))
-                paramsList.append(self.otherParams)
-                
-                jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
-                print jobInfo
-                jobQueue.put(jobInfo)
-        elif self.renderType == 'video':
-            pass
-        else:
-            print 'wasnt anything'
-
-    def JoinImages(self):
-        mainDir = os.getcwd()
-        os.chdir(self.tempImagesDir)
-        widthDiff = self.imageWidth / self.jobNumber
-        blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
-        
-        for inFile in glob.glob(self.outputFile + '_*.png'):
-            file, ext = os.path.splitext(inFile)
-            print 'slice join name',file
-            taskName,fileNumber = file.split('_')
-            section = Image.open(inFile)
-            xval = int(self.imageWidth * float(fileNumber))
-            slicepos = (xval,0,xval + widthDiff,self.imageHeight)
-            print 'slice pos',slicepos
-            imageSlice = section.crop(slicepos)
-            blankCanvas.paste(imageSlice,slicepos)
-        blankCanvas.save(self.outputFile + '.png','PNG')
-        os.chdir(mainDir)
-        # Join image files together that have been uploaded to the ftp
-
-    def TaskComplete(self):
-        pass
-        # Cleans up temp files and then does something with the picture
-        # emails, twitters, posts to flickr etc etc
+            self.jobCreator = PicJobGen(self.inputFile, self.outputFile, self.taskFile, self.jobNumber, self.imageHeight, self.imageWidth, self.otherParams)
+        elif self.renderType == 'picture':
+            self.jobCreator = MovJobGen()
+        print 'Task Thread: read param'
 
 
 
