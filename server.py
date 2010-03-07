@@ -130,7 +130,7 @@ class TaskThread(threading.Thread):
             self.Task.CreateJobs()
             print 'Tast Thread: waiting for job queue to be empty'
             jobQueue.join()
-            #self.node.JoinImages()
+            self.Task.JoinImages()
             self.Task.TaskComplete()
             
 
@@ -209,6 +209,8 @@ class TaskObject():
                 paramsList.append('+O'  + outputFileName)
                 paramsList.append('+SC' + colStart)
                 paramsList.append('+EC' + colEnd)
+                paramsList.append('+H'  + str(self.imageHeight))
+                paramsList.append('+W'  + str(self.imageWidth))
                 paramsList.append(self.otherParams)
                 
                 jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
@@ -220,16 +222,21 @@ class TaskObject():
             print 'wasnt anything'
 
     def JoinImages(self):
-        posDiff = self.imageWidth / self.jobNumber
         mainDir = os.getcwd()
         os.chdir(self.tempImagesDir)
+        widthDiff = self.imageWidth / self.jobNumber
         blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
         
         for inFile in glob.glob(self.outputFile + '_*.png'):
             file, ext = os.path.splitext(inFile)
+            print 'slice join name',file
             taskName,fileNumber = file.split('_')
             section = Image.open(inFile)
-            blankCanvas.paste(section,(posDiff * int(fileNumber),0))
+            xval = int(self.imageWidth * float(fileNumber))
+            slicepos = (xval,0,xval + widthDiff,self.imageHeight)
+            print 'slice pos',slicepos
+            imageSlice = section.crop(slicepos)
+            blankCanvas.paste(imageSlice,slicepos)
         blankCanvas.save(self.outputFile + '.png','PNG')
         os.chdir(mainDir)
         # Join image files together that have been uploaded to the ftp
