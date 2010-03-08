@@ -109,7 +109,6 @@ class NodeObj ():
         print running
         output = os.system(running)
         print output
-        os.rename(self.outputFile,self.outputFile + '.png')
         os.chdir(mainDir)
         # run povray from the command line
         # use self.jobParams as the arguments
@@ -122,9 +121,9 @@ class NodeObj ():
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         ftpDirFolder = self.jobFile + 'images'
         ftpSocket.cwd(ftpDirFolder)
-        uploadFile = os.path.join(os.getcwd(), 'nodetemp', self.jobFile, self.outputFile + '.png')
+        uploadFile = os.path.join(os.getcwd(), 'nodetemp', self.jobFile, self.outputFile)
         fileHandle = open(uploadFile,'rb')
-        ftpSocket.storbinary('STOR ' + self.outputFile + '.png', fileHandle)
+        ftpSocket.storbinary('STOR ' + self.outputFile, fileHandle)
         fileHandle.close()
         ftpSocket.quit()
         

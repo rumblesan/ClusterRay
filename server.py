@@ -135,7 +135,7 @@ class PicJobGen():
         
             colStart = str(job * dif)
             colEnd   = str((job + 1) * dif)
-            outputFileName = self.outputFile + '_' + str((job) * dif)
+            outputFileName = self.outputFile + '_' + str((job) * dif) + '.png'
             
             paramsList = []
             paramsList.append('+I'  + self.inputFile)
