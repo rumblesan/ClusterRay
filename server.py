@@ -51,7 +51,7 @@ class FtpThread(threading.Thread):
 
         authorizer = ftpserver.DummyAuthorizer()
 
-        ftpFolder = os.path.join(os.getcwd(), 'files')
+        ftpFolder = os.path.join(os.getcwd(), '/var/ftp')
         if not os.path.exists(ftpFolder):
             os.mkdir(ftpFolder)
         
@@ -96,18 +96,22 @@ class ClientObject():
         self.clientSocket.send('connected')
 
     def GetClientInfo(self):
-        fileName = self.clientSocket.recv(1024)
-        print fileName
-        print 'should have the filename here'
-        tarFileName = fileName + '.tar.gz'
-        ftpFile = os.path.join(os.getcwd(), 'files', tarFileName)
-        if os.path.isfile(ftpFile):
-            print 'Client sent file ', fileName
-            taskQueue.put(fileName)
-            print 'task put in queue'
-        else:
+        try:
+            fileName = self.clientSocket.recv(1024)
+            print fileName
+            print 'should have the filename here'
+            tarFileName = fileName + '.tar.gz'
+            ftpFile = os.path.join(os.getcwd(), '/var/ftp', tarFileName)
+            if os.path.isfile(ftpFile):
+                print 'Client sent file ', fileName
+                taskQueue.put(fileName)
+                print 'task put in queue'
+            else:
+                pass
+                #print 'No file can be found for ', fileName
+        except socket.error, msg:
             pass
-            #print 'No file can be found for ', fileName
+
 
 
 
@@ -117,7 +121,7 @@ class PicJobGen():
     def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
         self.taskFile      = TaskFile
 
-        self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
+        self.tempImagesDir = os.path.join(os.getcwd(), '/var/ftp', self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
         
@@ -173,7 +177,7 @@ class PicJobGen():
 
 
     def TaskCleanUp(self):
-        tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
+        tempDir = os.path.join(os.getcwd(), '/var/tmp/clusterTemp', self.taskFile)
         shutil.rmtree(tempDir)
         # Cleans up temp files and then does something with the picture
         # emails, twitters, posts to flickr etc etc
@@ -184,7 +188,7 @@ class MovJobGen():
     def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
         self.taskFile      = TaskFile
 
-        self.tempImagesDir = os.path.join(os.getcwd(), 'files', self.taskFile + 'images')
+        self.tempImagesDir = os.path.join(os.getcwd(), '/var/ftp', self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
         
@@ -297,12 +301,12 @@ class TaskObject():
                 time.sleep(10)
 
     def ReadParams(self):
-        self.tarName = os.path.join(os.getcwd(), 'files', self.taskFile + '.tar.gz')
+        self.tarName = os.path.join(os.getcwd(), '/var/ftp', self.taskFile + '.tar.gz')
         tarFile = tarfile.open(self.tarName, mode = 'r:gz')
-        tarFile.extractall('temp')
+        tarFile.extractall('/var/tmp/clusterTemp')
         tarFile.close()
         
-        paramFile = open(os.path.join(os.getcwd(), 'temp', self.taskFile, 'params.cfg'))
+        paramFile = open(os.path.join(os.getcwd(), '/var/tmp/clusterTemp', self.taskFile, 'params.cfg'))
         for line in paramFile:
             line = line.rstrip()
             line,params = line.split(':')
@@ -363,9 +367,7 @@ class NodeObject():
         queueing = True
         while queueing:
             print 'node thread looking for jobs'
-            jobInfo = jobQueue.get()
-            print 'node thread looking for jobs'
-            self.jobParams = jobInfo
+            self.jobParams = jobQueue.get()
             queueing = False
 
     def RunJob(self):
@@ -374,6 +376,9 @@ class NodeObject():
         nodeInfo = self.nodeSocket.recv(1024)
         if nodeInfo == '':
             self.running = False
+            print 'node failed on job ',self.jobParams
+            jobQueue.put(self.jobParams)
+            jobQueue.task_done()
             return False
         if nodeInfo == 'info':
             self.nodeSocket.send(self.jobParams)
@@ -383,6 +388,12 @@ class NodeObject():
                 if jobStatus == 'Completed':
                     jobQueue.task_done()
                     jobRunning = False
+                elif nodeInfo == '':
+                    self.running = False
+                    print 'node failed on job ',self.jobParams
+                    jobQueue.put(self.jobParams)
+                    jobQueue.task_done()
+                    return False
 
 
 if __name__ == '__main__':
@@ -392,12 +403,18 @@ if __name__ == '__main__':
     ClusterServer = ServerObj()
     serverRunning = True
     
-    tempFolder = os.path.join(os.getcwd(), 'temp')
+    tempFolder = os.path.join(os.getcwd(), '/var/tmp/clusterTemp')
     if not os.path.exists(tempFolder):
         os.mkdir(tempFolder)
     
-    FtpThread().start()
-    TaskThread().start()
+    ftpServer = FtpThread()
+    ftpServer.daemon = True
+    ftpServer.start()
+
+    taskHandler = TaskThread()
+    taskHandler.daemon = True
+    taskHandler.start()
+    
     
     while True:
     
@@ -412,8 +429,12 @@ if __name__ == '__main__':
             
             if socketType == 'node':
                 print 'Node connection from ',address
-                NodeThread(newSocket).start()
+                nodeHandler = NodeThread(newSocket)
+                nodeHandler.daemon = True
+                nodeHandler.start()
             elif socketType == 'client':
                 print 'Client connection from ',address
-                ClientThread(newSocket).start()
+                clientHandler = ClientThread(newSocket)
+                clientHandler.daemon = True
+                clientHandler.start()
 
