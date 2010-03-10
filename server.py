@@ -14,6 +14,9 @@ from PIL import Image
 
 jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
+ftpFolder = '/var/ftp'
+tempFolder = '/var/tmp/clusterTemp'
+
 
 class ServerObj():
 
@@ -51,7 +54,7 @@ class FtpThread(threading.Thread):
 
         authorizer = ftpserver.DummyAuthorizer()
 
-        ftpFolder = os.path.join(os.getcwd(), '/var/ftp')
+        ftpFolder = os.path.join(os.getcwd(), ftpFolder)
         if not os.path.exists(ftpFolder):
             os.mkdir(ftpFolder)
         
@@ -101,7 +104,7 @@ class ClientObject():
             print fileName
             print 'should have the filename here'
             tarFileName = fileName + '.tar.gz'
-            ftpFile = os.path.join(os.getcwd(), '/var/ftp', tarFileName)
+            ftpFile = os.path.join(os.getcwd(), ftpFolder, tarFileName)
             if os.path.isfile(ftpFile):
                 print 'Client sent file ', fileName
                 taskQueue.put(fileName)
@@ -121,7 +124,7 @@ class PicJobGen():
     def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
         self.taskFile      = TaskFile
 
-        self.tempImagesDir = os.path.join(os.getcwd(), '/var/ftp', self.taskFile + 'images')
+        self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
         
@@ -177,7 +180,7 @@ class PicJobGen():
 
 
     def TaskCleanUp(self):
-        tempDir = os.path.join(os.getcwd(), '/var/tmp/clusterTemp', self.taskFile)
+        tempDir = os.path.join(os.getcwd(), tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
         # Cleans up temp files and then does something with the picture
         # emails, twitters, posts to flickr etc etc
@@ -188,7 +191,7 @@ class MovJobGen():
     def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
         self.taskFile      = TaskFile
 
-        self.tempImagesDir = os.path.join(os.getcwd(), '/var/ftp', self.taskFile + 'images')
+        self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
         
@@ -301,12 +304,12 @@ class TaskObject():
                 time.sleep(10)
 
     def ReadParams(self):
-        self.tarName = os.path.join(os.getcwd(), '/var/ftp', self.taskFile + '.tar.gz')
+        self.tarName = os.path.join(os.getcwd(), ftpFolder, self.taskFile + '.tar.gz')
         tarFile = tarfile.open(self.tarName, mode = 'r:gz')
-        tarFile.extractall('/var/tmp/clusterTemp')
+        tarFile.extractall(tempFolder)
         tarFile.close()
         
-        paramFile = open(os.path.join(os.getcwd(), '/var/tmp/clusterTemp', self.taskFile, 'params.cfg'))
+        paramFile = open(os.path.join(os.getcwd(), tempFolder, self.taskFile, 'params.cfg'))
         for line in paramFile:
             line = line.rstrip()
             line,params = line.split(':')
@@ -403,7 +406,7 @@ if __name__ == '__main__':
     ClusterServer = ServerObj()
     serverRunning = True
     
-    tempFolder = os.path.join(os.getcwd(), '/var/tmp/clusterTemp')
+    tempFolder = os.path.join(os.getcwd(), tempFolder)
     if not os.path.exists(tempFolder):
         os.mkdir(tempFolder)
     
