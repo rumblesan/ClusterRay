@@ -16,7 +16,7 @@ jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
 ftpFolder = '/var/ftp'
 tempFolder = '/var/tmp/clusterTemp'
-
+loggingFolder = '/var/log/renderCluster/'
 
 class ServerObj():
 
@@ -44,14 +44,32 @@ class ServerObj():
             openingSocket = False
         
         self.serverSocket = serverSocket
- 
 
+class LoggingObj():
+
+    def __init__(self):
+        self.logFolder = loggingFolder
+        self.logFile = self.logFolder + 'RenderServer-' + self.TimeStamp()
+        self.fileHandle = open(self.logFile, a)
+        self.logFileLock = threading.Lock()
+
+    def WriteLine(self, logLine):
+        self.logFileLock.acquire()
+        output = self.TimeStamp() + '  ' + str(logLine) + '\n'
+        self.fileHandle.write(output)
+        self.logFileLock.release()
+    
+    def TimeStamp(self):
+        stamp = time.strftime("%Y%m%d-%H:%M:%S")
+        return stamp
 
 
 class FtpThread(threading.Thread):
 
     def run(self):
 
+        LogFile.WriteLine('Starting ftp server')
+        
         authorizer = ftpserver.DummyAuthorizer()
 
         ftpFolder = os.path.join(os.getcwd(), ftpFolder)
@@ -72,8 +90,9 @@ class FtpThread(threading.Thread):
         ftpd.max_cons = 256
         ftpd.max_cons_per_ip = 5
 
-        ftpd.serve_forever()
+        LogFile.WriteLine('Ftp server seems fine')
         
+        ftpd.serve_forever()
 
 
 
@@ -86,9 +105,9 @@ class ClientThread(threading.Thread):
     
     def run(self):
         self.client.Handshake()
+        LogFile.WriteLine('Client Thread: client thread running')
         while self.running:
             self.client.GetClientInfo()
-            
 
 class ClientObject():
 
@@ -101,21 +120,17 @@ class ClientObject():
     def GetClientInfo(self):
         try:
             fileName = self.clientSocket.recv(1024)
-            print fileName
-            print 'should have the filename here'
+            LogFile.WriteLine('Client Thread: client sent ' + fileName)
             tarFileName = fileName + '.tar.gz'
             ftpFile = os.path.join(os.getcwd(), ftpFolder, tarFileName)
             if os.path.isfile(ftpFile):
-                print 'Client sent file ', fileName
+                LogFile.WriteLine('Client Thread: file is on ftp server')
                 taskQueue.put(fileName)
-                print 'task put in queue'
+                LogFile.WriteLine('Client Thread: task has been put in queue')
             else:
-                pass
-                #print 'No file can be found for ', fileName
+                LogFile.WriteLine('Client Thread: file was not found on ftp server')
         except socket.error, msg:
-            pass
-
-
+            LogFile.WriteLine('Client Thread: client has disconnected')
 
 
 
@@ -137,7 +152,7 @@ class PicJobGen():
     
     def CreateJobs(self):
         dif = 1.0 / self.jobNumber
-        print 'function to create jobs'
+        LogFile.WriteLine('Job Generator: creating ' + str(self.jobNumber) + ' picture jobs')
         for job in range(self.jobNumber):
         
             colStart = str(job * dif)
@@ -154,10 +169,11 @@ class PicJobGen():
             paramsList.append(self.otherParams)
             
             jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
-            print jobInfo
+            LogFile.WriteLine('Job Generator: created job ' + jobInfo)
             jobQueue.put(jobInfo)
     
     def TaskFinish(self):
+        LogFile.WriteLine('Job Generator: joining image slices')
         mainDir = os.getcwd()
         os.chdir(self.tempImagesDir)
         widthDiff = self.imageWidth / self.jobNumber
@@ -165,12 +181,12 @@ class PicJobGen():
         
         for inFile in glob.glob(self.outputFile + '_*.png'):
             file, ext = os.path.splitext(inFile)
-            print 'slice join name',file
+            LogFile.WriteLine('Job Generator: slice join name ' + file)
             taskName,fileNumber = file.split('_')
             section = Image.open(inFile)
             xval = int(self.imageWidth * float(fileNumber))
             slicepos = (xval,0,xval + widthDiff,self.imageHeight)
-            print 'slice pos',slicepos
+            LogFile.WriteLine('Job Generator: slice position ' + slicepos)
             imageSlice = section.crop(slicepos)
             blankCanvas.paste(imageSlice,slicepos)
         blankCanvas.save(self.outputFile + '.png','PNG')
@@ -182,9 +198,6 @@ class PicJobGen():
     def TaskCleanUp(self):
         tempDir = os.path.join(os.getcwd(), tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
-        # Cleans up temp files and then does something with the picture
-        # emails, twitters, posts to flickr etc etc
-        
 
 class MovJobGen():
 
@@ -204,7 +217,6 @@ class MovJobGen():
     
     def CreateJobs(self):
         dif = 1.0 / self.jobNumber
-        print 'function to create jobs'
         for job in range(self.jobNumber):
         
             colStart = str(job * dif)
@@ -221,7 +233,6 @@ class MovJobGen():
             paramsList.append(self.otherParams)
             
             jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
-            print jobInfo
             jobQueue.put(jobInfo)
     
     def TaskFinish(self):
@@ -232,12 +243,10 @@ class MovJobGen():
         
         for inFile in glob.glob(self.outputFile + '_*.png'):
             file, ext = os.path.splitext(inFile)
-            print 'slice join name',file
             taskName,fileNumber = file.split('_')
             section = Image.open(inFile)
             xval = int(self.imageWidth * float(fileNumber))
             slicepos = (xval,0,xval + widthDiff,self.imageHeight)
-            print 'slice pos',slicepos
             imageSlice = section.crop(slicepos)
             blankCanvas.paste(imageSlice,slicepos)
         blankCanvas.save(self.outputFile + '.png','PNG')
@@ -249,8 +258,7 @@ class MovJobGen():
     def TaskCleanUp(self):
         tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
         shutil.rmtree(tempDir)
-        # Cleans up temp files and then does something with the picture
-        # emails, twitters, posts to flickr etc etc
+
 
 
 class TaskThread(threading.Thread):
@@ -258,23 +266,25 @@ class TaskThread(threading.Thread):
     def __init__(self):
         self.Task    = TaskObject()
         self.running = True
+        LogFile.WriteLine('Starting up Task thread')
         
         threading.Thread.__init__(self)
 
     def run(self):
         
         while self.running:
-            print 'Task Thread: waiting for task'
+            LogFile.WriteLine('Task Thread: waiting for task')
             self.Task.GetTask()
-            print 'Task Thread: got task ', self.Task.taskFile
+            LogFile.WriteLine('Task Thread: got task ' + self.Task.taskFile)
             self.Task.ReadParams()
-            print 'Task Thread: creating jobs'
+            LogFile.WriteLine('Task Thread: creating jobs')
             self.Task.jobCreator.CreateJobs()
-            print 'Tast Thread: waiting for job queue to be empty'
+            LogFile.WriteLine('Task Thread: waiting for job queue to be empty')
             jobQueue.join()
+            LogFile.WriteLine('Task Thread: task finished')
             self.Task.jobCreator.TaskFinish()
+            LogFile.WriteLine('Task Thread: cleaning up')
             self.Task.jobCreator.TaskCleanUp()
-            
 
 class TaskObject():
 
@@ -296,7 +306,6 @@ class TaskObject():
         queueing = True
         while queueing:
             taskInfo = taskQueue.get()
-            print 'task queue gots'
             if taskInfo != None:
                 self.taskFile = taskInfo
                 queueing = False
@@ -308,7 +317,7 @@ class TaskObject():
         tarFile = tarfile.open(self.tarName, mode = 'r:gz')
         tarFile.extractall(tempFolder)
         tarFile.close()
-        
+        LogFile.WriteLine('Task Thread: reading parameters file')
         paramFile = open(os.path.join(os.getcwd(), tempFolder, self.taskFile, 'params.cfg'))
         for line in paramFile:
             line = line.rstrip()
@@ -331,22 +340,26 @@ class TaskObject():
         paramFile.close()
 
         if self.renderType == 'picture':
+            LogFile.WriteLine('Task Thread: rendering a picture')
             self.jobCreator = PicJobGen(self.inputFile, self.outputFile, self.taskFile, self.jobNumber, self.imageHeight, self.imageWidth, self.otherParams)
         elif self.renderType == 'picture':
             self.jobCreator = MovJobGen()
-        print 'Task Thread: read param'
+            LogFile.WriteLine('Task Thread: rendering a video')
+        LogFile.WriteLine('Task Thread: finished reading parameters')
 
 
 
 class NodeThread(threading.Thread):
 
-    def __init__(self, newSocket):
-        self.node    = NodeObject(newSocket)
+    def __init__(self, newSocket, connectionIP):
+        self.node   = NodeObject(newSocket, self.name)
+        self.nodeIP = connectionIP
         threading.Thread.__init__(self)
         # create a thread for a particular socket
 
     def run(self):
         self.node.running = self.node.Handshake()
+        LogFile.WriteLine('Node Thread' + self.name + ': up and running for IP ' + self.nodeIP)
         while self.node.running:
             self.node.GetJob()
             self.node.RunJob()
@@ -354,9 +367,10 @@ class NodeThread(threading.Thread):
 
 class NodeObject():
 
-    def __init__(self, newSocket):
+    def __init__(self, newSocket, threadName):
         self.nodeSocket = newSocket
         self.jobParams  = None
+        self.threadName = threadName
         self.running    = False
 
     def Handshake(self):
@@ -369,32 +383,38 @@ class NodeObject():
     def GetJob(self):
         queueing = True
         while queueing:
-            print 'node thread looking for jobs'
+            LogFile.WriteLine(self.threadName + ': looking for jobs')
             self.jobParams = jobQueue.get()
             queueing = False
 
     def RunJob(self):
-        print 'node thread running job perhaps'
+        LogFile.WriteLine(self.threadName + ': got a job to run')
+        LogFile.WriteLine(self.threadName + ': job info ' + self.jobParams )
         self.nodeSocket.send('jobs available')
         nodeInfo = self.nodeSocket.recv(1024)
         if nodeInfo == '':
             self.running = False
-            print 'node failed on job ',self.jobParams
+            LogFile.WriteLine(self.threadName + ': node failed on job ' + self.jobParams)
             jobQueue.put(self.jobParams)
+            LogFile.WriteLine(self.threadName + ': putting job back into job queue')
             jobQueue.task_done()
             return False
         if nodeInfo == 'info':
+            LogFile.WriteLine(self.threadName + ': remote node is ready for job')
             self.nodeSocket.send(self.jobParams)
             jobRunning = True
             while jobRunning:
+                LogFile.WriteLine(self.threadName + ': remote node is running job')
                 jobStatus = self.nodeSocket.recv(1024)
                 if jobStatus == 'Completed':
+                    LogFile.WriteLine(self.threadName + ': remote node has completed job')
                     jobQueue.task_done()
                     jobRunning = False
                 elif nodeInfo == '':
                     self.running = False
-                    print 'node failed on job ',self.jobParams
+                    LogFile.WriteLine(self.threadName + ': node failed on job ' + self.jobParams)
                     jobQueue.put(self.jobParams)
+                    LogFile.WriteLine(self.threadName + ': putting job back into job queue')
                     jobQueue.task_done()
                     return False
 
@@ -402,13 +422,14 @@ class NodeObject():
 if __name__ == '__main__':
     
     global ClusterServer
+    global LogFile
     
     ClusterServer = ServerObj()
+    Logile = LoggingObj()
+    
     serverRunning = True
     
-    tempFolder = os.path.join(os.getcwd(), tempFolder)
-    if not os.path.exists(tempFolder):
-        os.mkdir(tempFolder)
+    LogFile.WriteLine('Cluster Server running')
     
     ftpServer = FtpThread()
     ftpServer.daemon = True
@@ -418,10 +439,11 @@ if __name__ == '__main__':
     taskHandler.daemon = True
     taskHandler.start()
     
+    nodeNumber = 1
     
     while True:
     
-        print 'Serving Network requests on port ', ClusterServer.serverPort
+        LogFile.WriteLine('Serving Network requests on port ' + ClusterServer.serverPort)
         ClusterServer.CreateSocket()
         
         while serverRunning:
@@ -431,12 +453,15 @@ if __name__ == '__main__':
             socketType = newSocket.recv(1024)
             
             if socketType == 'node':
-                print 'Node connection from ',address
+                LogFile.WriteLine('Node connection from ' + address)
                 nodeHandler = NodeThread(newSocket)
                 nodeHandler.daemon = True
+                nodeHandler.name = 'Node Thread ' + str(nodeNumber)
+                nodeNumber += 1
+                LogFile.WriteLine('Created ' + nodeHandler.name + ' for address ' + address)
                 nodeHandler.start()
             elif socketType == 'client':
-                print 'Client connection from ',address
+                LogFile.WriteLine('Client connection from ' + address)
                 clientHandler = ClientThread(newSocket)
                 clientHandler.daemon = True
                 clientHandler.start()
