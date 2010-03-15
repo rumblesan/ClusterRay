@@ -50,7 +50,7 @@ class LoggingObj():
     def __init__(self):
         self.logFolder = loggingFolder
         self.logFile = self.logFolder + 'RenderServer-' + self.TimeStamp()
-        self.fileHandle = open(self.logFile, a)
+        self.fileHandle = open(self.logFile, 'a')
         self.logFileLock = threading.Lock()
 
     def WriteLine(self, logLine):
@@ -60,7 +60,7 @@ class LoggingObj():
         self.logFileLock.release()
     
     def TimeStamp(self):
-        stamp = time.strftime("%Y%m%d-%H:%M:%S")
+        stamp = time.strftime("%Y%m%d%H:%M:%S")
         return stamp
 
 
