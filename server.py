@@ -49,8 +49,8 @@ class LoggingObj():
 
     def __init__(self):
         self.logFolder = loggingFolder
-        self.logFile = self.logFolder + 'RenderServer-' + self.TimeStamp()
-        self.fileHandle = open(self.logFile, 'a')
+        self.logFile = os.path.join(self.logFolder, 'RenderServer' + self.TimeStamp())
+        self.fileHandle = open(self.logFile, 'w')
         self.logFileLock = threading.Lock()
 
     def WriteLine(self, logLine):
@@ -60,7 +60,7 @@ class LoggingObj():
         self.logFileLock.release()
     
     def TimeStamp(self):
-        stamp = time.strftime("%Y%m%d%H:%M:%S")
+        stamp = time.strftime("%Y%m%d%H%M%S")
         return stamp
 
 
@@ -71,10 +71,6 @@ class FtpThread(threading.Thread):
         LogFile.WriteLine('Starting ftp server')
         
         authorizer = ftpserver.DummyAuthorizer()
-
-        ftpFolder = os.path.join(os.getcwd(), ftpFolder)
-        if not os.path.exists(ftpFolder):
-            os.mkdir(ftpFolder)
         
         authorizer.add_user('node', 'cluster', ftpFolder, perm='elradfmw')
         authorizer.add_user('client', 'cluster', ftpFolder, perm='elradfmw')
@@ -425,7 +421,7 @@ if __name__ == '__main__':
     global LogFile
     
     ClusterServer = ServerObj()
-    Logile = LoggingObj()
+    LogFile = LoggingObj()
     
     serverRunning = True
     
@@ -443,7 +439,7 @@ if __name__ == '__main__':
     
     while True:
     
-        LogFile.WriteLine('Serving Network requests on port ' + ClusterServer.serverPort)
+        LogFile.WriteLine('Serving Network requests on port ' + str(ClusterServer.serverPort))
         ClusterServer.CreateSocket()
         
         while serverRunning:
