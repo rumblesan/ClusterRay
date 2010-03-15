@@ -8,6 +8,9 @@ import tarfile
 import ftplib
 import shutil
 
+tempFolder = '/var/tmp/clusterTemp'
+loggingFolder = '/var/log/renderCluster/'
+
 class NodeObj ():
 
     def __init__(self):
@@ -67,18 +70,21 @@ class NodeObj ():
         # waits untill it gets a job
         checking = True
         while checking:
-            print 'checking for job status'
+            LogFile.WriteLine('Node: Checking for job status')
             jobStatus = self.serverSocket.recv(1024)
             if jobStatus == 'jobs available':
-                print 'jobs available'
+                LogFile.WriteLine('Node: Jobs available')
                 self.serverSocket.send('info')
                 jobInfo = self.serverSocket.recv(1024)
+                LogFile.WriteLine('Node: Job informaion received')
+                LogFile.WriteLine('Node: ' + jobInfo)
                 jobInfo = jobInfo.split('::')
                 self.jobFile = jobInfo[0]
                 self.outputFile = jobInfo[1]
                 self.jobParams = jobInfo[2]
                 checking = False
             else:
+                LogFile.WriteLine('Node: Sleeping')
                 time.sleep(10)
         return 1
 
@@ -86,29 +92,30 @@ class NodeObj ():
         # download tar.gz file from the ftp server
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         tarName = self.jobFile + '.tar.gz'
-        print 'downloading from ftp', tarName
+        LogFile.WriteLine('Node: Downloading file from FTP')
+        LogFile.WriteLine('Node: ' + tarName)
         tarFile = open(tarName,"wb")
         ftpSocket.retrbinary("RETR " + tarName, tarFile.write)
         tarFile.close()
         ftpSocket.quit()
+        LogFile.WriteLine('Node: File downloaded OK')
         
     def UntarFile(self):
-        print 'untarring file'
+        LogFile.WriteLine('Node: Untaring file')
         tarName = self.jobFile + '.tar.gz'
         tarFile = tarfile.open(tarName, mode = 'r:gz')
-        tarFile.extractall('nodetemp')
+        tarFile.extractall(tempFolder)
         tarFile.close()
         os.remove(tarName)
         
     def RunJob(self):
         mainDir = os.getcwd()
-        jobDir = os.path.join(os.getcwd(), 'nodetemp', self.jobFile)
+        jobDir = os.path.join(tempFolder, self.jobFile)
         os.chdir(jobDir)
         running = 'povray ' + self.jobParams
-        print 'running job now'
-        print running
+        LogFile.WriteLine('Node: Running job now')
+        LogFile.WriteLine('Node: ' + running)
         output = os.system(running)
-        print output
         os.chdir(mainDir)
         # run povray from the command line
         # use self.jobParams as the arguments
@@ -117,42 +124,59 @@ class NodeObj ():
     def UploadOutputFile(self):
         # upload tar.gz file to the ftp server
         # probablly want error checking
-        print 
+        LogFile.WriteLine('Node: Uploading output file to ftp server') 
         ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
         ftpDirFolder = self.jobFile + 'images'
         ftpSocket.cwd(ftpDirFolder)
-        uploadFile = os.path.join(os.getcwd(), 'nodetemp', self.jobFile, self.outputFile)
+        uploadFile = os.path.join(tempFolder, self.jobFile, self.outputFile)
         fileHandle = open(uploadFile,'rb')
         ftpSocket.storbinary('STOR ' + self.outputFile, fileHandle)
         fileHandle.close()
         ftpSocket.quit()
         
     def CompletedTask(self):
-        tempFiles = os.path.join(os.getcwd(), 'nodetemp', self.jobFile)
+        LogFile.WriteLine('Node: Clearing up temp dirs')
+        tempFiles = os.path.join(tempFolder, self.jobFile)
         shutil.rmtree(tempFiles)
         self.serverSocket.send('Completed')
         # send job completion message back
         # format output of job program
         # send job information back
 
+class LoggingObj():
+ 
+    def __init__(self):
+        self.logFolder = loggingFolder
+        self.logFile = self.logFolder + 'RenderServer-' + self.TimeStamp()
+        self.fileHandle = open(self.logFile, 'a')
+        self.logFileLock = threading.Lock()
+ 
+    def WriteLine(self, logLine):
+        self.logFileLock.acquire()
+        output = self.TimeStamp() + ' ' + str(logLine) + '\n'
+        self.fileHandle.write(output)
+        self.logFileLock.release()
+    
+    def TimeStamp(self):
+        stamp = time.strftime("%Y%m%d%H:%M:%S")
+        return stamp
 
 if __name__ == '__main__':
 
+    global LogFile
+
     clusterNode = NodeObj()
-    
-    tempFolder = os.path.join(os.getcwd(), 'nodetemp')
-    if not os.path.exists(tempFolder):
-        os.mkdir(tempFolder)
+    LogFile = LoggingObj()
     
     while True:
-        print 'trying to connect to server'
+        LogFile.WriteLine('Node: Trying to connect to server')
         clusterNode.ServerConnect()
-        print 'connected to server'
+        LogFile.WriteLine('Node: Connected to server')
         clusterNode.Handshake()
-        print 'handshake ok'
+        LogFile.WriteLine('Node: Hanshake OK')
         
         while clusterNode.connectedServer:
-            print 'checking for jobs'
+            LogFile.WriteLine('Node: Checking for jobs')
             if clusterNode.CheckForJobs():
                 clusterNode.FtpDownload()
                 clusterNode.UntarFile()
