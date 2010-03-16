@@ -13,7 +13,7 @@ class ClientObj ():
         # details of main server
         # will eventually be in cfg file
         # possibly host name based
-        self.serverIP        = '192.168.2.4'
+        self.serverIP        = '192.168.2.14'
         self.serverPort      = 5007
         
         self.ftpServer       = self.serverIP
