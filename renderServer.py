@@ -406,7 +406,7 @@ class TaskObject():
             LogFile.WriteLine('Task Thread: rendering a picture')
             self.jobCreator = PicJobGen(self.inputFile, self.outputFile, self.taskFile, self.jobNumber, self.imageHeight, self.imageWidth, self.otherParams)
         elif self.renderType == 'picture':
-            self.jobCreator = MovJobGen()
+            self.jobCreator = MovJobGen(self.inputFile, self.outputFile, self.taskFile, self.imageHeight, self.imageWidth, self.otherParams)
             LogFile.WriteLine('Task Thread: rendering a video')
         LogFile.WriteLine('Task Thread: finished reading parameters')
 
