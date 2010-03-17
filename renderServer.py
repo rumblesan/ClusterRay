@@ -195,38 +195,120 @@ class PicJobGen():
         tempDir = os.path.join(os.getcwd(), tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
 
+class SequenceObj():
+
+    def __init__(self, varName, varSequence):
+        self.VarName = varName
+        self.varSequence = self.seqConvert(varSequence)
+        self.bpm = 0
+        self.frm = 0
+        self.length = 0
+        
+        self.sectionCount = 0
+        self.seqCount = 0
+        self.repeat   = 0
+        self.repVal   = 0
+
+    def seqConvert(self, seqList):
+        startVal,meh = seqList[0]
+        prevVal = float(startVal)
+        prevPos = 0
+        newSeq = []
+        
+        for data in seqList[1:]:
+            value,position = data
+            newValue = float(value)
+            
+            posBars, posBeats, posTeenths = position.split('.')
+            teenthVal = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
+            
+            secLength = int(framesP16th * (teenthVal - prevPos))
+            delta = (newValue - prevVal) / (secLength - 1)
+            newSeq.append((prevVal,delta,secLength))
+            prevVal = newValue
+            prevPos = teenthVal
+            
+        return newSeq
+
+    def SeqVal(self):
+        if not self.repeat:
+            start, delta, length = self.varSequence[self.sectionCount]
+            value = start + (delta * self.seqCount)
+            self.seqCount += 1
+            if self.seqCount == length:
+                self.sectionCount += 1
+                self.seqCount = 0
+            if self.sectionCount == len(self.varSequence):
+                self.repeat = 1
+                self.repVal = value
+            return value
+        else:
+            return self.repVal
+        
+
 class MovJobGen():
 
-    def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
-        self.taskFile      = TaskFile
-
+    def __init__(self, InputFile, OutputFile, TaskFile, Height, Width, Other):
+        self.taskFile = TaskFile
+ 
         self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
+
+        self.inputFile = InputFile
+        self.outputFile = OutputFile
+        self.imageHeight = Height
+        self.imageWidth = Width
+        self.otherParams = Other
         
-        self.jobNumber     = JobNumber
-        self.inputFile     = InputFile
-        self.outputFile    = OutputFile
-        self.imageHeight   = Height
-        self.imageWidth    = Width
-        self.otherParams   = Other
+        LogFile.WriteLine('Task Thread: reading sequence file')
+        paramFile = open(os.path.join(os.getcwd(), tempFolder, self.taskFile, 'seqFile.txt'))
+        for line in paramFile:
+            line = line.rstrip()
+            line,params = line.split(':')
+            if line == 'bpm':
+                self.bpm = int(params)
+            elif line == 'frm':
+                self.frameRate   = int(params)
+            elif line == 'len':
+                self.length   = params
+            elif line == 'varseq':
+                varName,varSeqVals   = eval(params)
+                self.varList.append(varName)
+                self.varParams[varName] = varSeqVals
+        
+        self.sequences    = None
+        
+        framesP16th = (16 * float(self.bpm)) / (60 * float(self.frameRate))
+
+        posBars, posBeats, posTeenths = self.length.split('.')
+        lengthTeenths = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
+        self.totalLength = lengthTeenths * framesP16th
+        
+        for variable in self.varList:
     
-    def CreateJobs(self):
-        dif = 1.0 / self.jobNumber
-        for job in range(self.jobNumber):
-        
-            colStart = str(job * dif)
-            colEnd   = str((job + 1) * dif)
-            outputFileName = self.outputFile + '_' + str((job) * dif)
+            variableSequence = self.varParams[variable]
             
+            seqObj = SequenceObj(variable,variableSequence)
+            seqObj.bpm = self.bpm
+            seqObj.frm = self.frameRate
+            seqObj.length = self.totalLength
+            self.sequences[variable] = seqObj
+        
+    def CreateJobs(self):
+        for job in range(totalLength):
+
+            outputFileName = self.outputFile + '_' + str(job)
+                    
             paramsList = []
-            paramsList.append('+I'  + self.inputFile)
-            paramsList.append('+O'  + outputFileName)
-            paramsList.append('+SC' + colStart)
-            paramsList.append('+EC' + colEnd)
-            paramsList.append('+H'  + str(self.imageHeight))
-            paramsList.append('+W'  + str(self.imageWidth))
+            paramsList.append('+I' + self.inputFile)
+            paramsList.append('+O' + outputFileName)
+            paramsList.append('+H' + str(self.imageHeight))
+            paramsList.append('+W' + str(self.imageWidth))
             paramsList.append(self.otherParams)
+            
+            for variable in varList:
+                paramsList.append('Declare=' + str(variable) + '=' + str(sequences[variable].SeqVal()))
             
             jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
             jobQueue.put(jobInfo)
@@ -234,28 +316,13 @@ class MovJobGen():
     def TaskFinish(self):
         mainDir = os.getcwd()
         os.chdir(self.tempImagesDir)
-        widthDiff = self.imageWidth / self.jobNumber
-        blankCanvas = Image.new('RGB',(self.imageWidth,self.imageHeight))
-        
-        for inFile in glob.glob(self.outputFile + '_*.png'):
-            file, ext = os.path.splitext(inFile)
-            taskName,fileNumber = file.split('_')
-            section = Image.open(inFile)
-            xval = int(self.imageWidth * float(fileNumber))
-            slicepos = (xval,0,xval + widthDiff,self.imageHeight)
-            imageSlice = section.crop(slicepos)
-            blankCanvas.paste(imageSlice,slicepos)
-        blankCanvas.save(self.outputFile + '.png','PNG')
-        os.chdir(mainDir)
-        # Join image files together that have been uploaded to the ftp
-
-
-
+        # Code to join single frames into movie goes here
+        os.chdir(mainDir) 
+ 
+ 
     def TaskCleanUp(self):
         tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
         shutil.rmtree(tempDir)
-
-
 
 class TaskThread(threading.Thread):
 
