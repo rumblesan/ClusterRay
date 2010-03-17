@@ -127,6 +127,7 @@ class ClientObject():
                 LogFile.WriteLine('Client Thread: file was not found on ftp server')
         except socket.error, msg:
             LogFile.WriteLine('Client Thread: client has disconnected')
+            self.running = False
 
 
 
