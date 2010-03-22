@@ -2,6 +2,7 @@
 
 #Import Modules
 import os
+import sys
 import socket
 import threading
 import Queue
@@ -11,12 +12,14 @@ import ftpserver
 import tarfile
 import glob
 from PIL import Image
+from daemon import Daemon
 
 jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
 ftpFolder = '/var/ftp'
 tempFolder = '/var/tmp/clusterTemp'
-loggingFolder = '/var/log/renderCluster/'
+loggingFolder = '/var/log/'
+pidFile = '/var/run/renderServer.pid'
 
 class ServerObj():
 
@@ -49,8 +52,8 @@ class LoggingObj():
 
     def __init__(self):
         self.logFolder = loggingFolder
-        self.logFile = os.path.join(self.logFolder, 'RenderServer' + self.TimeStamp())
-        self.fileHandle = open(self.logFile, 'w')
+        self.logFile = os.path.join(self.logFolder, 'RenderServer.log')
+        self.fileHandle = open(self.logFile, 'a')
         self.logFileLock = threading.Lock()
 
     def WriteLine(self, logLine):
@@ -80,7 +83,7 @@ class FtpThread(threading.Thread):
 
         ftp_handler.banner = 'Nebula Cluster FTP Server'
 
-        address = ('', 21)
+        address = ('', 3457)
         ftpd = ftpserver.FTPServer(address, ftp_handler)
 
         ftpd.max_cons = 256
@@ -89,6 +92,33 @@ class FtpThread(threading.Thread):
         LogFile.WriteLine('Ftp server seems fine')
         
         ftpd.serve_forever()
+
+class ConnectionThread(threading.Thread):
+
+    def run(self):
+
+        nodeNumber = 1
+        
+        LogFile.WriteLine('Serving Network requests on port ' + str(ClusterServer.serverPort))
+        ClusterServer.CreateSocket()
+        
+        newSocket, address = ClusterServer.serverSocket.accept()
+        newSocket.setblocking(1)
+        socketType = newSocket.recv(1024)
+        
+        if socketType == 'node':
+            LogFile.WriteLine('Node connection from ' + str(address))
+            nodeHandler = NodeThread(newSocket, address)
+            nodeHandler.daemon = True
+            nodeHandler.name = 'Node Thread ' + str(nodeNumber)
+            nodeNumber += 1
+            LogFile.WriteLine('Created ' + str(nodeHandler.name) + ' for address ' + str(address))
+            nodeHandler.start()
+        elif socketType == 'client':
+            LogFile.WriteLine('Client connection from ' + str(address))
+            clientHandler = ClientThread(newSocket)
+            clientHandler.daemon = True
+            clientHandler.start()
 
 
 
@@ -483,58 +513,75 @@ class NodeObject():
                     return False
 
 
-if __name__ == '__main__':
+class NodeDaemon(Daemon):
     
-    global ClusterServer
-    global LogFile
+    def run(self):
+    
+        global ClusterServer
+        global LogFile
 
+        daemonize()
 
-    if not os.path.exists(ftpFolder):
-        os.mkdir(ftpFolder)
-    if not os.path.exists(tempFolder):
-        os.mkdir(tempFolder)
-    if not os.path.exists(loggingFolder):
-        os.mkdir(loggingFolder)
-    
-    ClusterServer = ServerObj()
-    LogFile = LoggingObj()
-    
-    serverRunning = True
-    
-    LogFile.WriteLine('Cluster Server running')
-    
-    ftpServer = FtpThread()
-    ftpServer.daemon = True
-    ftpServer.start()
+        if not os.path.exists(ftpFolder):
+            os.mkdir(ftpFolder)
+        if not os.path.exists(tempFolder):
+            os.mkdir(tempFolder)
+        
+        ClusterServer = ServerObj()
+        LogFile = LoggingObj()
+        
+        serverRunning = True
+        
+        LogFile.WriteLine('Cluster Server running')
+        
+        ftpServer = FtpThread()
+        ftpServer.daemon = True
+        ftpServer.start()
 
-    taskHandler = TaskThread()
-    taskHandler.daemon = True
-    taskHandler.start()
-    
-    nodeNumber = 1
-    
-    while True:
-    
+        taskHandler = TaskThread()
+        taskHandler.daemon = True
+        taskHandler.start()
+        
+        nodeNumber = 1
+        
         LogFile.WriteLine('Serving Network requests on port ' + str(ClusterServer.serverPort))
         ClusterServer.CreateSocket()
         
-        while serverRunning:
+        newSocket, address = ClusterServer.serverSocket.accept()
+        newSocket.setblocking(1)
+        socketType = newSocket.recv(1024)
+        
+        if socketType == 'node':
+            LogFile.WriteLine('Node connection from ' + str(address))
+            nodeHandler = NodeThread(newSocket, address)
+            nodeHandler.daemon = True
+            nodeHandler.name = 'Node Thread ' + str(nodeNumber)
+            nodeNumber += 1
+            LogFile.WriteLine('Created ' + str(nodeHandler.name) + ' for address ' + str(address))
+            nodeHandler.start()
+        elif socketType == 'client':
+            LogFile.WriteLine('Client connection from ' + str(address))
+            clientHandler = ClientThread(newSocket)
+            clientHandler.daemon = True
+            clientHandler.start()
 
-            newSocket, address = ClusterServer.serverSocket.accept()
-            newSocket.setblocking(1)
-            socketType = newSocket.recv(1024)
-            
-            if socketType == 'node':
-                LogFile.WriteLine('Node connection from ' + str(address))
-                nodeHandler = NodeThread(newSocket, address)
-                nodeHandler.daemon = True
-                nodeHandler.name = 'Node Thread ' + str(nodeNumber)
-                nodeNumber += 1
-                LogFile.WriteLine('Created ' + str(nodeHandler.name) + ' for address ' + str(address))
-                nodeHandler.start()
-            elif socketType == 'client':
-                LogFile.WriteLine('Client connection from ' + str(address))
-                clientHandler = ClientThread(newSocket)
-                clientHandler.daemon = True
-                clientHandler.start()
+
+
+if __name__ == "__main__":
+        daemon = NodeDaemon('/tmp/daemon-example.pid')
+        if len(sys.argv) == 2:
+                if 'start' == sys.argv[1]:
+                        daemon.start()
+                elif 'stop' == sys.argv[1]:
+                        daemon.stop()
+                elif 'restart' == sys.argv[1]:
+                        daemon.restart()
+                else:
+                        print "Unknown command"
+                        sys.exit(2)
+                sys.exit(0)
+        else:
+                print "usage: %s start|stop|restart" % sys.argv[0]
+                sys.exit(2)
+                
 

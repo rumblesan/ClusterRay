@@ -12,6 +12,7 @@ import threading
 tempFolder = '/var/tmp/clusterTemp'
 loggingFolder = '/var/log/renderCluster/'
 
+
 class NodeObj ():
 
     def __init__(self):
@@ -22,7 +23,7 @@ class NodeObj ():
         self.serverPort      = 5007
         self.serverSocket    = None
 
-        self.ftpServer       = self.serverIP 
+        self.ftpServer       = self.serverIP + ':3457' 
         self.ftpUser         = 'node'
         self.ftpPass         = 'cluster'
 
@@ -148,7 +149,7 @@ class LoggingObj():
  
     def __init__(self):
         self.logFolder = loggingFolder
-        self.logFile = self.logFolder + 'RenderNode-' + self.TimeStamp()
+        self.logFile = self.logFolder + 'RenderNode.log'
         self.fileHandle = open(self.logFile, 'w')
         self.logFileLock = threading.Lock()
  
@@ -162,31 +163,53 @@ class LoggingObj():
         stamp = time.strftime("%Y%m%d-%H:%M:%S")
         return stamp
 
-if __name__ == '__main__':
 
-    global LogFile
 
-    if not os.path.exists(tempFolder):
-        os.mkdir(tempFolder)
-    if not os.path.exists(loggingFolder):
-        os.mkdir(loggingFolder)
-
-    clusterNode = NodeObj()
-    LogFile = LoggingObj()
+class MyDaemon(Daemon):
     
-    while True:
-        LogFile.WriteLine('Node: Trying to connect to server')
-        clusterNode.ServerConnect()
-        LogFile.WriteLine('Node: Connected to server')
-        clusterNode.Handshake()
-        LogFile.WriteLine('Node: Hanshake OK')
+    def run(self):
+
+        if not os.path.exists(tempFolder):
+            os.mkdir(tempFolder)
+        if not os.path.exists(loggingFolder):
+            os.mkdir(loggingFolder)
+
+        clusterNode = NodeObj()
+        LogFile = LoggingObj()
         
-        while clusterNode.connectedServer:
-            LogFile.WriteLine('Node: Checking for jobs')
-            if clusterNode.CheckForJobs():
-                clusterNode.FtpDownload()
-                clusterNode.UntarFile()
-                clusterNode.RunJob()
-                clusterNode.UploadOutputFile()
-                clusterNode.CompletedTask()
+        while True:
+            LogFile.WriteLine('Node: Trying to connect to server')
+            clusterNode.ServerConnect()
+            LogFile.WriteLine('Node: Connected to server')
+            clusterNode.Handshake()
+            LogFile.WriteLine('Node: Hanshake OK')
+            
+            while clusterNode.connectedServer:
+                LogFile.WriteLine('Node: Checking for jobs')
+                if clusterNode.CheckForJobs():
+                    clusterNode.FtpDownload()
+                    clusterNode.UntarFile()
+                    clusterNode.RunJob()
+                    clusterNode.UploadOutputFile()
+                    clusterNode.CompletedTask()
+
+
+if __name__ == "__main__":
+        daemon = MyDaemon('/tmp/daemon-example.pid')
+        if len(sys.argv) == 2:
+                if 'start' == sys.argv[1]:
+                        daemon.start()
+                elif 'stop' == sys.argv[1]:
+                        daemon.stop()
+                elif 'restart' == sys.argv[1]:
+                        daemon.restart()
+                else:
+                        print "Unknown command"
+                        sys.exit(2)
+                sys.exit(0)
+        else:
+                print "usage: %s start|stop|restart" % sys.argv[0]
+                sys.exit(2)
                 
+
+
