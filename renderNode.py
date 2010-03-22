@@ -10,8 +10,11 @@ import shutil
 import threading
 
 tempFolder = '/var/tmp/clusterTemp'
-loggingFolder = '/var/log/renderCluster/'
-
+loggingFolder = '/var/log/'
+pidFile = '/var/run/renderNode.pid'
+serverPort = 5007
+ftpPort = 3457
+serverIP = '192.168.2.14'
 
 class NodeObj ():
 
@@ -19,11 +22,11 @@ class NodeObj ():
         # details of main server
         # will eventually be in cfg file
         # possibly host name based
-        self.serverIP        = '192.168.2.14'
-        self.serverPort      = 5007
+        self.serverIP        = serverIP
+        self.serverPort      = serverPort
         self.serverSocket    = None
 
-        self.ftpServer       = self.serverIP + ':3457' 
+        self.ftpServer       = self.serverIP + ':' + ftpPort 
         self.ftpUser         = 'node'
         self.ftpPass         = 'cluster'
 
@@ -150,7 +153,7 @@ class LoggingObj():
     def __init__(self):
         self.logFolder = loggingFolder
         self.logFile = self.logFolder + 'RenderNode.log'
-        self.fileHandle = open(self.logFile, 'w')
+        self.fileHandle = open(self.logFile, 'a')
         self.logFileLock = threading.Lock()
  
     def WriteLine(self, logLine):
@@ -169,6 +172,8 @@ class MyDaemon(Daemon):
     
     def run(self):
 
+        global LogFile
+        
         if not os.path.exists(tempFolder):
             os.mkdir(tempFolder)
         if not os.path.exists(loggingFolder):
@@ -195,7 +200,7 @@ class MyDaemon(Daemon):
 
 
 if __name__ == "__main__":
-        daemon = MyDaemon('/tmp/daemon-example.pid')
+        daemon = MyDaemon(pidFile)
         if len(sys.argv) == 2:
                 if 'start' == sys.argv[1]:
                         daemon.start()
