@@ -20,12 +20,14 @@ ftpFolder = '/var/ftp'
 tempFolder = '/var/tmp/clusterTemp'
 loggingFolder = '/var/log/'
 pidFile = '/var/run/renderServer.pid'
+ftpPort = 3457
+serverPort = 5007
 
 class ServerObj():
 
     def __init__(self):
         self.serverIP       = ''
-        self.serverPort     = 5007
+        self.serverPort     = serverPort
         self.serverSocket   = None
     
     def CreateSocket(self):
@@ -83,7 +85,7 @@ class FtpThread(threading.Thread):
 
         ftp_handler.banner = 'Nebula Cluster FTP Server'
 
-        address = ('', 3457)
+        address = ('', ftpPort)
         ftpd = ftpserver.FTPServer(address, ftp_handler)
 
         ftpd.max_cons = 256
@@ -92,35 +94,7 @@ class FtpThread(threading.Thread):
         LogFile.WriteLine('Ftp server seems fine')
         
         ftpd.serve_forever()
-
-class ConnectionThread(threading.Thread):
-
-    def run(self):
-
-        nodeNumber = 1
         
-        LogFile.WriteLine('Serving Network requests on port ' + str(ClusterServer.serverPort))
-        ClusterServer.CreateSocket()
-        
-        newSocket, address = ClusterServer.serverSocket.accept()
-        newSocket.setblocking(1)
-        socketType = newSocket.recv(1024)
-        
-        if socketType == 'node':
-            LogFile.WriteLine('Node connection from ' + str(address))
-            nodeHandler = NodeThread(newSocket, address)
-            nodeHandler.daemon = True
-            nodeHandler.name = 'Node Thread ' + str(nodeNumber)
-            nodeNumber += 1
-            LogFile.WriteLine('Created ' + str(nodeHandler.name) + ' for address ' + str(address))
-            nodeHandler.start()
-        elif socketType == 'client':
-            LogFile.WriteLine('Client connection from ' + str(address))
-            clientHandler = ClientThread(newSocket)
-            clientHandler.daemon = True
-            clientHandler.start()
-
-
 
 class ClientThread(threading.Thread):
 
@@ -516,11 +490,8 @@ class NodeObject():
 class NodeDaemon(Daemon):
     
     def run(self):
-    
-        global ClusterServer
-        global LogFile
 
-        daemonize()
+        global LogFile
 
         if not os.path.exists(ftpFolder):
             os.mkdir(ftpFolder)
@@ -542,8 +513,6 @@ class NodeDaemon(Daemon):
         taskHandler.daemon = True
         taskHandler.start()
         
-        nodeNumber = 1
-        
         LogFile.WriteLine('Serving Network requests on port ' + str(ClusterServer.serverPort))
         ClusterServer.CreateSocket()
         
@@ -551,6 +520,7 @@ class NodeDaemon(Daemon):
         newSocket.setblocking(1)
         socketType = newSocket.recv(1024)
         
+        nodeNumber = 1
         if socketType == 'node':
             LogFile.WriteLine('Node connection from ' + str(address))
             nodeHandler = NodeThread(newSocket, address)
