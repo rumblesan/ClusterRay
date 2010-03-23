@@ -10,11 +10,11 @@ import shutil
 import threading
 
 tempFolder = '/var/tmp/clusterTemp'
-loggingFolder = '/var/log/'
-pidFile = '/var/run/renderNode.pid'
+logFile    = '/var/log/RenderNode.log'
+pidFile    = '/var/run/renderNode.pid'
 serverPort = 5007
-ftpPort = 3457
-serverIP = '192.168.2.14'
+ftpPort    = 3457
+serverIP   = '192.168.2.14'
 
 class NodeObj ():
 
@@ -122,6 +122,7 @@ class NodeObj ():
         LogFile.WriteLine('Node: ' + running)
         output = os.system(running)
         os.chdir(mainDir)
+        return output
         # run povray from the command line
         # use self.jobParams as the arguments
        
@@ -148,11 +149,20 @@ class NodeObj ():
         # format output of job program
         # send job information back
 
+    def JobError(self):
+        LogFile.WriteLine('Node: Clearing up temp dirs')
+        tempFiles = os.path.join(tempFolder, self.jobFile)
+        shutil.rmtree(tempFiles)
+        LogFile.WriteLine('Node: Telling server job had errors')
+        self.serverSocket.send('Error')
+        # send job completion message back
+        # format output of job program
+        # send job information back
+
 class LoggingObj():
  
     def __init__(self):
-        self.logFolder = loggingFolder
-        self.logFile = self.logFolder + 'RenderNode.log'
+        self.logFile = logFile
         self.fileHandle = open(self.logFile, 'a')
         self.logFileLock = threading.Lock()
  
@@ -168,11 +178,13 @@ class LoggingObj():
 
 
 
-class MyDaemon(Daemon):
+class NodeDaemon(Daemon):
     
     def run(self):
 
         global LogFile
+        
+        LogFile.WriteLine('Checking that all necesarry folders are available')
         
         if not os.path.exists(tempFolder):
             os.mkdir(tempFolder)
@@ -194,26 +206,40 @@ class MyDaemon(Daemon):
                 if clusterNode.CheckForJobs():
                     clusterNode.FtpDownload()
                     clusterNode.UntarFile()
-                    clusterNode.RunJob()
-                    clusterNode.UploadOutputFile()
-                    clusterNode.CompletedTask()
+                    jobState = clusterNode.RunJob()
+                    if jobState:
+                        LogFile.WriteLine('Node: Job run fine')
+                        clusterNode.UploadOutputFile()
+                        clusterNode.CompletedTask()
+                    else:
+                        LogFile.WriteLine('Node: Problem running job')
 
 
 if __name__ == "__main__":
-        daemon = MyDaemon(pidFile)
+        LogFile.WriteLine('\n\n')
+        LogFile.WriteLine('Cluster Node Starting Up')
+        LogFile.WriteLine('')
+        daemon = NodeDaemon(pidFile)
         if len(sys.argv) == 2:
                 if 'start' == sys.argv[1]:
+                        LogFile.WriteLine('Starting Daemon')
                         daemon.start()
+                elif 'foreground' == sys.argv[1]:
+                        LogFile.WriteLine('Running in foreground')
+                        daemon.run()
                 elif 'stop' == sys.argv[1]:
+                        LogFile.WriteLine('Stopping Daemon')
                         daemon.stop()
                 elif 'restart' == sys.argv[1]:
+                        LogFile.WriteLine('Restarting Daemon')
                         daemon.restart()
                 else:
+                        LogFile.WriteLine('Unknown Command')
                         print "Unknown command"
                         sys.exit(2)
                 sys.exit(0)
         else:
-                print "usage: %s start|stop|restart" % sys.argv[0]
+                print "usage: %s start|stop|restart|foreground" % sys.argv[0]
                 sys.exit(2)
                 
 
