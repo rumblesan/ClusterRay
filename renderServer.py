@@ -99,20 +99,15 @@ class FtpThread(threading.Thread):
 class ClientThread(threading.Thread):
 
     def __init__(self, newSocket):
-        self.client   = ClientObject(newSocket)
+        self.clientSocket = newSocket
         self.running  = True
         threading.Thread.__init__(self)
     
     def run(self):
-        self.client.Handshake()
+        self.Handshake()
         LogFile.WriteLine('Client Thread: client thread running')
         while self.running:
-            self.client.GetClientInfo()
-
-class ClientObject():
-
-    def __init__(self, newSocket):
-        self.clientSocket = newSocket
+            self.GetClientInfo()
 
     def Handshake(self):
         self.clientSocket.send('connected')
@@ -194,11 +189,10 @@ class PicJobGen():
         os.chdir(mainDir)
         # Join image files together that have been uploaded to the ftp
 
-
-
     def TaskCleanUp(self):
         tempDir = os.path.join(os.getcwd(), tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
+
 
 class SequenceObj():
 
@@ -332,33 +326,8 @@ class MovJobGen():
 class TaskThread(threading.Thread):
 
     def __init__(self):
-        self.Task    = TaskObject()
-        self.running = True
-        LogFile.WriteLine('Starting up Task thread')
+        self.running       = True
         
-        threading.Thread.__init__(self)
-
-    def run(self):
-        
-        while self.running:
-            LogFile.WriteLine('Task Thread: waiting for task')
-            self.Task.GetTask()
-            LogFile.WriteLine('Task Thread: got task ' + str(self.Task.taskFile))
-            self.Task.ReadParams()
-            LogFile.WriteLine('Task Thread: creating jobs')
-            self.Task.jobCreator.CreateJobs()
-            LogFile.WriteLine('Task Thread: waiting for job queue to be empty')
-            jobQueue.join()
-            LogFile.WriteLine('Task Thread: task finished')
-            self.Task.jobCreator.TaskFinish()
-            LogFile.WriteLine('Task Thread: cleaning up')
-            self.Task.jobCreator.TaskCleanUp()
-
-
-
-class TaskObject():
-
-    def __init__(self):
         self.taskFile      = ''
         self.tempImagesDir = ''
         
@@ -371,6 +340,25 @@ class TaskObject():
         self.otherParams   = ''
         
         self.jobCreator    = None
+        LogFile.WriteLine('Starting up Task thread')
+        
+        threading.Thread.__init__(self)
+
+    def run(self):
+        
+        while self.running:
+            LogFile.WriteLine('Task Thread: waiting for task')
+            self.GetTask()
+            LogFile.WriteLine('Task Thread: got task ' + str(self.taskFile))
+            self.ReadParams()
+            LogFile.WriteLine('Task Thread: creating jobs')
+            self.jobCreator.CreateJobs()
+            LogFile.WriteLine('Task Thread: waiting for job queue to be empty')
+            jobQueue.join()
+            LogFile.WriteLine('Task Thread: task finished')
+            self.jobCreator.TaskFinish()
+            LogFile.WriteLine('Task Thread: cleaning up')
+            self.jobCreator.TaskCleanUp()
 
     def GetTask(self):
         queueing = True
@@ -423,25 +411,19 @@ class NodeThread(threading.Thread):
 
     def __init__(self, newSocket, connectionIP):
         self.nodeIP = connectionIP
-        threading.Thread.__init__(self)
-        # create a thread for a particular socket
-
-    def run(self):
-        self.node   = NodeObject(newSocket, self.name)
-        self.node.running = self.node.Handshake()
-        LogFile.WriteLine('Node Thread' + str(self.name) + ': up and running for IP ' + str(self.nodeIP))
-        while self.node.running:
-            self.node.GetJob()
-            self.node.RunJob()
-
-
-class NodeObject():
-
-    def __init__(self, newSocket, threadName):
         self.nodeSocket = newSocket
         self.jobParams  = None
         self.threadName = threadName
         self.running    = False
+        threading.Thread.__init__(self)
+        # create a thread for a particular socket
+
+    def run(self):
+        self.running = self.Handshake()
+        LogFile.WriteLine('Node Thread' + str(self.name) + ': up and running for IP ' + str(self.nodeIP))
+        while self.running:
+            self.GetJob()
+            self.RunJob()
 
     def Handshake(self):
         connectCheck = self.nodeSocket.send('connected')
@@ -489,7 +471,7 @@ class NodeObject():
                     return False
 
 
-class NodeDaemon(Daemon):
+class ServerDaemon(Daemon):
     
     def run(self):
 
@@ -543,7 +525,7 @@ if __name__ == "__main__":
         LogFile.WriteLine('\n\n')
         LogFile.WriteLine('Cluster Server Starting Up')
         LogFile.WriteLine('')
-        daemon = NodeDaemon(pidFile)
+        daemon = ServerDaemon(pidFile)
         if len(sys.argv) == 2:
                 if 'start' == sys.argv[1]:
                         LogFile.WriteLine('Starting Daemon')
