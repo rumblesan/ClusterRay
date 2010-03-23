@@ -354,6 +354,8 @@ class TaskThread(threading.Thread):
             LogFile.WriteLine('Task Thread: cleaning up')
             self.Task.jobCreator.TaskCleanUp()
 
+
+
 class TaskObject():
 
     def __init__(self):
@@ -492,7 +494,9 @@ class NodeDaemon(Daemon):
     def run(self):
 
         global LogFile
-
+        
+        LogFile.WriteLine('Checking that all necesarry folders are available')
+        
         if not os.path.exists(ftpFolder):
             os.mkdir(ftpFolder)
         if not os.path.exists(tempFolder):
@@ -500,8 +504,6 @@ class NodeDaemon(Daemon):
         
         ClusterServer = ServerObj()
         LogFile = LoggingObj()
-        
-        serverRunning = True
         
         LogFile.WriteLine('Cluster Server running')
         
@@ -538,15 +540,25 @@ class NodeDaemon(Daemon):
 
 
 if __name__ == "__main__":
-        daemon = NodeDaemon('/tmp/daemon-example.pid')
+        LogFile.WriteLine('\n\n')
+        LogFile.WriteLine('Cluster Server Starting Up')
+        LogFile.WriteLine('')
+        daemon = NodeDaemon(pidFile)
         if len(sys.argv) == 2:
                 if 'start' == sys.argv[1]:
+                        LogFile.WriteLine('Starting Daemon')
                         daemon.start()
+                elif 'foreground' == sys.argv[1]:
+                        LogFile.WriteLine('Running in foreground')
+                        daemon.run()
                 elif 'stop' == sys.argv[1]:
+                        LogFile.WriteLine('Stopping Daemon')
                         daemon.stop()
                 elif 'restart' == sys.argv[1]:
+                        LogFile.WriteLine('Restarting Daemon')
                         daemon.restart()
                 else:
+                        LogFile.WriteLine('Unknown Command')
                         print "Unknown command"
                         sys.exit(2)
                 sys.exit(0)
