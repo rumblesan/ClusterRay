@@ -18,7 +18,7 @@ jobQueue = Queue.Queue(0)
 taskQueue = Queue.Queue(0)
 ftpFolder = '/var/ftp'
 tempFolder = '/var/tmp/clusterTemp'
-loggingFolder = '/var/log/'
+loggingFile = '/var/log/RenderServer.log'
 pidFile = '/var/run/renderServer.pid'
 ftpPort = 3457
 serverPort = 5007
@@ -53,8 +53,7 @@ class ServerObj():
 class LoggingObj():
 
     def __init__(self):
-        self.logFolder = loggingFolder
-        self.logFile = os.path.join(self.logFolder, 'RenderServer.log')
+        self.logFile = os.path.join(loggingFile)
         self.fileHandle = open(self.logFile, 'a')
         self.logFileLock = threading.Lock()
 
@@ -115,6 +114,9 @@ class ClientThread(threading.Thread):
     def GetClientInfo(self):
         try:
             fileName = self.clientSocket.recv(1024)
+            if fileName == 0:
+                self.running = False
+                return 0
             LogFile.WriteLine('Client Thread: client sent ' + fileName)
             tarFileName = fileName + '.tar.gz'
             ftpFile = os.path.join(os.getcwd(), ftpFolder, tarFileName)
