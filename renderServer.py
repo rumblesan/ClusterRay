@@ -481,8 +481,6 @@ class NodeThread(threading.Thread):
 class ServerDaemon(Daemon):
     
     def run(self):
-
-        global LogFile
         
         LogFile.WriteLine('Checking that all necesarry folders are available')
         
@@ -492,7 +490,6 @@ class ServerDaemon(Daemon):
             os.mkdir(tempFolder)
         
         ClusterServer = ServerObj()
-        LogFile = LoggingObj()
         
         LogFile.WriteLine('Cluster Server running')
         
@@ -529,30 +526,35 @@ class ServerDaemon(Daemon):
 
 
 if __name__ == "__main__":
-        LogFile.WriteLine('\n\n')
-        LogFile.WriteLine('Cluster Server Starting Up')
-        LogFile.WriteLine('')
-        daemon = ServerDaemon(pidFile)
-        if len(sys.argv) == 2:
-                if 'start' == sys.argv[1]:
-                        LogFile.WriteLine('Starting Daemon')
-                        daemon.start()
-                elif 'foreground' == sys.argv[1]:
-                        LogFile.WriteLine('Running in foreground')
-                        daemon.run()
-                elif 'stop' == sys.argv[1]:
-                        LogFile.WriteLine('Stopping Daemon')
-                        daemon.stop()
-                elif 'restart' == sys.argv[1]:
-                        LogFile.WriteLine('Restarting Daemon')
-                        daemon.restart()
-                else:
-                        LogFile.WriteLine('Unknown Command')
-                        print "Unknown command"
-                        sys.exit(2)
-                sys.exit(0)
-        else:
-                print "usage: %s start|stop|restart" % sys.argv[0]
-                sys.exit(2)
+
+    global LogFile
+    LogFile = LoggingObj()
+
+    LogFile.WriteLine('\n\n')
+    LogFile.WriteLine('Cluster Server Starting Up')
+    LogFile.WriteLine('')
+    daemon = ServerDaemon(pidFile)
+    
+    if len(sys.argv) == 2:
+            if 'start' == sys.argv[1]:
+                    LogFile.WriteLine('Starting Daemon')
+                    daemon.start()
+            elif 'foreground' == sys.argv[1]:
+                    LogFile.WriteLine('Running in foreground')
+                    daemon.run()
+            elif 'stop' == sys.argv[1]:
+                    LogFile.WriteLine('Stopping Daemon')
+                    daemon.stop()
+            elif 'restart' == sys.argv[1]:
+                    LogFile.WriteLine('Restarting Daemon')
+                    daemon.restart()
+            else:
+                    LogFile.WriteLine('Unknown Command')
+                    print "Unknown command"
+                    sys.exit(2)
+            sys.exit(0)
+    else:
+            print "usage: %s start|stop|restart" % sys.argv[0]
+            sys.exit(2)
                 
 

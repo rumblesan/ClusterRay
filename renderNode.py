@@ -181,8 +181,6 @@ class LoggingObj():
 class NodeDaemon(Daemon):
     
     def run(self):
-
-        global LogFile
         
         LogFile.WriteLine('Checking that all necesarry folders are available')
         
@@ -192,7 +190,6 @@ class NodeDaemon(Daemon):
             os.mkdir(loggingFolder)
 
         clusterNode = NodeObj()
-        LogFile = LoggingObj()
         
         while True:
             LogFile.WriteLine('Node: Trying to connect to server')
@@ -216,10 +213,15 @@ class NodeDaemon(Daemon):
 
 
 if __name__ == "__main__":
+
+        global LogFile
+        LogFile = LoggingObj()
+        
         LogFile.WriteLine('\n\n')
         LogFile.WriteLine('Cluster Node Starting Up')
         LogFile.WriteLine('')
         daemon = NodeDaemon(pidFile)
+        
         if len(sys.argv) == 2:
                 if 'start' == sys.argv[1]:
                         LogFile.WriteLine('Starting Daemon')
