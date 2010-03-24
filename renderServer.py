@@ -217,9 +217,14 @@ class SequenceObj():
         newSeq = []
         
         for data in seqList[1:]:
-            value,position = data
+            value,curve,position = data
             newValue = float(value)
-            
+            curve    = float(curve)
+            if curve > 1:
+                curve = 1
+            elif curve < 0:
+                curve = 0
+
             posBars, posBeats, posTeenths = position.split('.')
             teenthVal = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
             
