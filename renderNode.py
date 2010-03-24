@@ -188,8 +188,6 @@ class NodeDaemon(Daemon):
         
         if not os.path.exists(tempFolder):
             os.mkdir(tempFolder)
-        if not os.path.exists(loggingFolder):
-            os.mkdir(loggingFolder)
 
         clusterNode = NodeObj()
         
