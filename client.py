@@ -90,7 +90,10 @@ class ClientObj ():
     def FtpUpload(self):
         # upload tar.gz file to the ftp server
         # probablly want error checking
-        ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
+        ftpSocket = ftplib.FTP()
+        ftpSocket.connect(self.ftpServer,3457)
+        ftpSocket.login(self.ftpUser,self.ftpPass)
+
         fileHandle = open(self.tarName,'rb')
         ftpSocket.storbinary('STOR ' + self.tarName, fileHandle)
         fileHandle.close()

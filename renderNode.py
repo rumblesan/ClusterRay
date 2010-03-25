@@ -28,7 +28,7 @@ class NodeObj ():
         self.serverPort      = serverPort
         self.serverSocket    = None
 
-        self.ftpServer       = self.serverIP + ':' + str(ftpPort)
+        self.ftpServer       = self.serverIP
         self.ftpUser         = 'node'
         self.ftpPass         = 'cluster'
 
@@ -64,11 +64,16 @@ class NodeObj ():
         # tell it that this is a node
         waiting = True
         while waiting:
-            self.serverSocket.send('node')
-            serverStatus = self.serverSocket.recv(1024)
-            if serverStatus == 'connected':
-                waiting = False
-            else:
+            try:
+                self.serverSocket.send('node')
+                serverStatus = self.serverSocket.recv(1024)
+                if serverStatus == 'connected':
+                    waiting = False
+                else:
+                    LogFile.WriteLine('Node: Problems connecting, sleep then try again')
+                    time.sleep(2)
+            except socket.error, msg:
+                LogFile.WriteLine('Node: Problems connecting, sleep then try again')
                 time.sleep(2)
                 
         return serverStatus
@@ -97,7 +102,11 @@ class NodeObj ():
 
     def FtpDownload(self):
         # download tar.gz file from the ftp server
-        ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
+        
+        ftpSocket = ftplib.FTP()
+        ftpSocket.connect(self.ftpServer,ftpPort)
+        ftpSocket.login(self.ftpUser,self.ftpPass)
+        
         tarName = self.jobFile + '.tar.gz'
         LogFile.WriteLine('Node: Downloading file from FTP')
         LogFile.WriteLine('Node: ' + tarName)
@@ -132,8 +141,10 @@ class NodeObj ():
     def UploadOutputFile(self):
         # upload tar.gz file to the ftp server
         # probablly want error checking
-        LogFile.WriteLine('Node: Uploading output file to ftp server') 
-        ftpSocket = ftplib.FTP(self.ftpServer,self.ftpUser,self.ftpPass)
+        LogFile.WriteLine('Node: Uploading output file to ftp server')
+        ftpSocket = ftplib.FTP()
+        ftpSocket.connect(self.ftpServer,ftpPort)
+        ftpSocket.login(self.ftpUser,self.ftpPass)
         ftpDirFolder = self.jobFile + 'images'
         ftpSocket.cwd(ftpDirFolder)
         uploadFile = os.path.join(tempFolder, self.jobFile, self.outputFile)
@@ -204,7 +215,8 @@ class NodeDaemon(Daemon):
                     clusterNode.FtpDownload()
                     clusterNode.UntarFile()
                     jobState = clusterNode.RunJob()
-                    if jobState:
+                    LogFile.WriteLine('Node: finished job')
+                    if not jobState:
                         LogFile.WriteLine('Node: Job run fine')
                         clusterNode.UploadOutputFile()
                         clusterNode.CompletedTask()

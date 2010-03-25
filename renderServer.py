@@ -54,13 +54,14 @@ class LoggingObj():
 
     def __init__(self):
         self.logFile = os.path.join(loggingFile)
-        self.fileHandle = open(self.logFile, 'a')
+        self.fileHandle = open(self.logFile, 'w')
         self.logFileLock = threading.Lock()
 
     def WriteLine(self, logLine):
         self.logFileLock.acquire()
         output = self.TimeStamp() + '  ' + str(logLine) + '\n'
         self.fileHandle.write(output)
+        print output
         self.logFileLock.release()
     
     def TimeStamp(self):
@@ -114,7 +115,8 @@ class ClientThread(threading.Thread):
     def GetClientInfo(self):
         try:
             fileName = self.clientSocket.recv(1024)
-            if fileName == 0:
+            if fileName == 0 or fileName == '':
+                print 'problem here'
                 self.running = False
                 return 0
             LogFile.WriteLine('Client Thread: client sent ' + fileName)
@@ -198,12 +200,13 @@ class PicJobGen():
 
 class SequenceObj():
 
-    def __init__(self, varName, varSequence):
+    def __init__(self, varName, varSequence, framesP16th):
         self.VarName = varName
         self.varSequence = self.seqConvert(varSequence)
         self.bpm = 0
         self.frm = 0
         self.length = 0
+        self.framesP16th = framesP16th
         
         self.sectionCount = 0
         self.seqCount = 0
@@ -233,7 +236,7 @@ class SequenceObj():
             posBars, posBeats, posTeenths = position.split('.')
             teenthVal = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
             
-            secLength = int(framesP16th * (teenthVal - prevPos))
+            secLength = int(self.framesP16th * (teenthVal - prevPos))
             delta = (newValue - prevVal)
             newSeq.append((prevVal,delta,secLength,prevcurve))
             prevVal   = newValue
@@ -272,6 +275,9 @@ class MovJobGen():
         self.imageHeight = Height
         self.imageWidth = Width
         self.otherParams = Other
+        self.varList  = []
+        self.varParams = {}
+        
         
         LogFile.WriteLine('Task Thread: reading sequence file')
         paramFile = open(os.path.join(os.getcwd(), tempFolder, self.taskFile, 'seqFile.txt'))
@@ -301,7 +307,7 @@ class MovJobGen():
     
             variableSequence = self.varParams[variable]
             
-            seqObj = SequenceObj(variable,variableSequence)
+            seqObj = SequenceObj(variable,variableSequence, framesP16th)
             seqObj.bpm = self.bpm
             seqObj.frm = self.frameRate
             seqObj.length = self.totalLength
@@ -413,7 +419,7 @@ class TaskThread(threading.Thread):
         if self.renderType == 'picture':
             LogFile.WriteLine('Task Thread: rendering a picture')
             self.jobCreator = PicJobGen(self.inputFile, self.outputFile, self.taskFile, self.jobNumber, self.imageHeight, self.imageWidth, self.otherParams)
-        elif self.renderType == 'picture':
+        elif self.renderType == 'movie':
             self.jobCreator = MovJobGen(self.inputFile, self.outputFile, self.taskFile, self.imageHeight, self.imageWidth, self.otherParams)
             LogFile.WriteLine('Task Thread: rendering a video')
         LogFile.WriteLine('Task Thread: finished reading parameters')
@@ -426,60 +432,67 @@ class NodeThread(threading.Thread):
         self.nodeIP = connectionIP
         self.nodeSocket = newSocket
         self.jobParams  = None
-        self.threadName = threadName
         self.running    = False
         threading.Thread.__init__(self)
         # create a thread for a particular socket
 
     def run(self):
         self.running = self.Handshake()
-        LogFile.WriteLine('Node Thread' + str(self.name) + ': up and running for IP ' + str(self.nodeIP))
+        LogFile.WriteLine(self.name + ': up and running for IP ' + str(self.nodeIP))
         while self.running:
             self.GetJob()
-            self.RunJob()
+            if self.jobParams != None:
+                self.RunJob()
+            else:
+                LogFile.WriteLine(self.name + ': Round again')
 
     def Handshake(self):
-        connectCheck = self.nodeSocket.send('connected')
-        if connectCheck == 0:
+        try:
+            connectCheck = self.nodeSocket.send('connected')
+            if connectCheck == 0:
+                return False
+            else:
+                return True
+        except socket.error, msg:
+            LogFile.WriteLine(self.name + ': Connection dropped, killing thread')
             return False
-        else:
-            return True
 
     def GetJob(self):
         queueing = True
         while queueing:
-            LogFile.WriteLine(self.threadName + ': looking for jobs')
+            LogFile.WriteLine(self.name + ': looking for jobs')
             self.jobParams = jobQueue.get()
+            LogFile.WriteLine(self.name + ': should have a job now')
             queueing = False
 
     def RunJob(self):
-        LogFile.WriteLine(self.threadName + ': got a job to run')
-        LogFile.WriteLine(self.threadName + ': job info ' + self.jobParams )
+        LogFile.WriteLine(self.name + ': got a job to run')
+        LogFile.WriteLine(self.name + ': job info ' + self.jobParams )
         self.nodeSocket.send('jobs available')
         nodeInfo = self.nodeSocket.recv(1024)
         if nodeInfo == '':
             self.running = False
-            LogFile.WriteLine(self.threadName + ': node failed on job ' + self.jobParams)
+            LogFile.WriteLine(self.name + ': node failed on job ' + self.jobParams)
             jobQueue.put(self.jobParams)
-            LogFile.WriteLine(self.threadName + ': putting job back into job queue')
+            LogFile.WriteLine(self.name + ': putting job back into job queue')
             jobQueue.task_done()
             return False
         if nodeInfo == 'info':
-            LogFile.WriteLine(self.threadName + ': remote node is ready for job')
+            LogFile.WriteLine(self.name + ': remote node is ready for job')
             self.nodeSocket.send(self.jobParams)
             jobRunning = True
             while jobRunning:
-                LogFile.WriteLine(self.threadName + ': remote node is running job')
+                LogFile.WriteLine(self.name + ': remote node is running job')
                 jobStatus = self.nodeSocket.recv(1024)
                 if jobStatus == 'Completed':
-                    LogFile.WriteLine(self.threadName + ': remote node has completed job')
+                    LogFile.WriteLine(self.name + ': remote node has completed job')
                     jobQueue.task_done()
                     jobRunning = False
                 elif nodeInfo == '':
                     self.running = False
-                    LogFile.WriteLine(self.threadName + ': node failed on job ' + self.jobParams)
+                    LogFile.WriteLine(self.name + ': node failed on job ' + self.jobParams)
                     jobQueue.put(self.jobParams)
-                    LogFile.WriteLine(self.threadName + ': putting job back into job queue')
+                    LogFile.WriteLine(self.name + ': putting job back into job queue')
                     jobQueue.task_done()
                     return False
 
@@ -487,6 +500,13 @@ class NodeThread(threading.Thread):
 class ServerDaemon(Daemon):
     
     def run(self):
+        
+        global LogFile
+        LogFile = LoggingObj()
+
+        LogFile.WriteLine('\n\n')
+        LogFile.WriteLine('Cluster Server Starting Up')
+        LogFile.WriteLine('')
         
         LogFile.WriteLine('Checking that all necesarry folders are available')
         
@@ -510,52 +530,44 @@ class ServerDaemon(Daemon):
         LogFile.WriteLine('Serving Network requests on port ' + str(ClusterServer.serverPort))
         ClusterServer.CreateSocket()
         
-        newSocket, address = ClusterServer.serverSocket.accept()
-        newSocket.setblocking(1)
-        socketType = newSocket.recv(1024)
-        
         nodeNumber = 1
-        if socketType == 'node':
-            LogFile.WriteLine('Node connection from ' + str(address))
-            nodeHandler = NodeThread(newSocket, address)
-            nodeHandler.daemon = True
-            nodeHandler.name = 'Node Thread ' + str(nodeNumber)
-            nodeNumber += 1
-            LogFile.WriteLine('Created ' + str(nodeHandler.name) + ' for address ' + str(address))
-            nodeHandler.start()
-        elif socketType == 'client':
-            LogFile.WriteLine('Client connection from ' + str(address))
-            clientHandler = ClientThread(newSocket)
-            clientHandler.daemon = True
-            clientHandler.start()
+        
+        while True:
+        
+            newSocket, address = ClusterServer.serverSocket.accept()
+            newSocket.setblocking(1)
+            socketType = newSocket.recv(1024)
+            
+            if socketType == 'node':
+                LogFile.WriteLine('Node connection from ' + str(address))
+                nodeHandler = NodeThread(newSocket, address)
+                nodeHandler.daemon = True
+                nodeHandler.name = 'Node Thread ' + str(nodeNumber)
+                nodeNumber += 1
+                LogFile.WriteLine('Created ' + str(nodeHandler.name) + ' for address ' + str(address))
+                nodeHandler.start()
+            elif socketType == 'client':
+                LogFile.WriteLine('Client connection from ' + str(address))
+                clientHandler = ClientThread(newSocket)
+                clientHandler.daemon = True
+                clientHandler.start()
 
 
 
 if __name__ == "__main__":
 
-    global LogFile
-    LogFile = LoggingObj()
-
-    LogFile.WriteLine('\n\n')
-    LogFile.WriteLine('Cluster Server Starting Up')
-    LogFile.WriteLine('')
     daemon = ServerDaemon(pidFile)
     
     if len(sys.argv) == 2:
             if 'start' == sys.argv[1]:
-                    LogFile.WriteLine('Starting Daemon')
                     daemon.start()
             elif 'foreground' == sys.argv[1]:
-                    LogFile.WriteLine('Running in foreground')
                     daemon.run()
             elif 'stop' == sys.argv[1]:
-                    LogFile.WriteLine('Stopping Daemon')
                     daemon.stop()
             elif 'restart' == sys.argv[1]:
-                    LogFile.WriteLine('Restarting Daemon')
                     daemon.restart()
             else:
-                    LogFile.WriteLine('Unknown Command')
                     print "Unknown command"
                     sys.exit(2)
             sys.exit(0)
