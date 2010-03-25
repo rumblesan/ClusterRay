@@ -28,7 +28,7 @@ class NodeObj ():
         self.serverPort      = serverPort
         self.serverSocket    = None
 
-        self.ftpServer       = self.serverIP + ':' + ftpPort 
+        self.ftpServer       = self.serverIP + ':' + str(ftpPort)
         self.ftpUser         = 'node'
         self.ftpPass         = 'cluster'
 
