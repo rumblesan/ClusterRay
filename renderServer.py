@@ -211,35 +211,41 @@ class SequenceObj():
         self.repVal   = 0
 
     def seqConvert(self, seqList):
-        startVal,meh = seqList[0]
-        prevVal = float(startVal)
+        startVal,curve,meh = seqList[0]
+        prevVal      = float(startVal)
+        prevcurve    = float(curve)
+        if prevcurve > 1:
+            prevcurve = 1
+        elif prevcurve < 0:
+            prevcurve = 0
         prevPos = 0
         newSeq = []
         
         for data in seqList[1:]:
             value,curve,position = data
-            newValue = float(value)
-            curve    = float(curve)
-            if curve > 1:
-                curve = 1
-            elif curve < 0:
-                curve = 0
+            newValue    = float(value)
+            newcurve    = float(curve)
+            if newcurve > 1:
+                newcurve = 1
+            elif newcurve < 0:
+                newcurve = 0
 
             posBars, posBeats, posTeenths = position.split('.')
             teenthVal = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
             
             secLength = int(framesP16th * (teenthVal - prevPos))
-            delta = (newValue - prevVal) / (secLength - 1)
-            newSeq.append((prevVal,delta,secLength))
-            prevVal = newValue
-            prevPos = teenthVal
+            delta = (newValue - prevVal)
+            newSeq.append((prevVal,delta,secLength,prevcurve))
+            prevVal   = newValue
+            prevPos   = teenthVal
+            prevcurve = newcurve
             
         return newSeq
 
     def SeqVal(self):
         if not self.repeat:
-            start, delta, length = self.varSequence[self.sectionCount]
-            value = start + (delta * self.seqCount)
+            start, delta, length, curve = self.varSequence[self.sectionCount]
+            value = start + (delta * pow((self.seqCount / length),curve))
             self.seqCount += 1
             if self.seqCount == length:
                 self.sectionCount += 1
