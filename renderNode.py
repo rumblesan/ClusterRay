@@ -29,6 +29,7 @@ class NodeObj ():
         self.serverSocket    = None
 
         self.ftpServer       = self.serverIP
+        self.ftpPort         = ftpPort
         self.ftpUser         = 'node'
         self.ftpPass         = 'cluster'
 
@@ -40,7 +41,7 @@ class NodeObj ():
         self.connectedServer = False
 
     def ServerConnect(self):
-        # keep trying to connect to server
+        LogFile.WriteLine('Node: Trying to connect to server')
         while not self.connectedServer:
             try:
                 self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -58,43 +59,65 @@ class NodeObj ():
 
             self.serverSocket.setblocking(1)
             self.connectedServer = True
+        LogFile.WriteLine('Node: Connected to server')
+        return 1
 
     def Handshake(self):
         # check in with the server
         # tell it that this is a node
-        waiting = True
-        while waiting:
+        while True:
             try:
-                self.serverSocket.send('node')
+                sendData = self.serverSocket.send('node')
+                if sendData == 0:
+                    LogFile.WriteLine('Node: Connection to server has died. Will sleep then reconnect')
+                    time.sleep(5)
+                    self.connectedServer = False
+                    return 0
                 serverStatus = self.serverSocket.recv(1024)
                 if serverStatus == 'connected':
-                    waiting = False
+                    LogFile.WriteLine('Node: Hanshake OK')
+                    return 1
                 else:
-                    LogFile.WriteLine('Node: Problems connecting, sleep then try again')
+                    LogFile.WriteLine('Node: Problems connecting, sleep then try to reconnect')
                     time.sleep(2)
+                    return 0
             except socket.error, msg:
-                LogFile.WriteLine('Node: Problems connecting, sleep then try again')
+                LogFile.WriteLine('Node: Problems connecting, sleep then try to reconnect')
                 time.sleep(2)
-                
-        return serverStatus
+                return 0
+
         
     def CheckForJobs(self):
-        # waits untill it gets a job
-        checking = True
-        while checking:
+        LogFile.WriteLine('Node: Checking for jobs')
+        while True:
             LogFile.WriteLine('Node: Checking for job status')
             jobStatus = self.serverSocket.recv(1024)
             if jobStatus == 'jobs available':
                 LogFile.WriteLine('Node: Jobs available')
-                self.serverSocket.send('info')
+                sendData = self.serverSocket.send('info')
+                if sendData == 0:
+                    LogFile.WriteLine('Node: Connection to server has died. Will sleep then reconnect')
+                    time.sleep(5)
+                    self.connectedServer = False
+                    return 0
                 jobInfo = self.serverSocket.recv(1024)
+                if jobInfo == '':
+                    LogFile.WriteLine('Node: Connection to server has died. Will sleep then reconnect')
+                    time.sleep(5)
+                    self.connectedServer = False
+                    return 0
                 LogFile.WriteLine('Node: Job informaion received')
                 LogFile.WriteLine('Node: ' + jobInfo)
                 jobInfo = jobInfo.split('::')
                 self.jobFile = jobInfo[0]
                 self.outputFile = jobInfo[1]
                 self.jobParams = jobInfo[2]
-                checking = False
+                return 1
+            elif jobStatus == '':
+                LogFile.WriteLine('Node: Connection to server has died. Will sleep then reconnect')
+                time.sleep(5)
+                self.connectedServer = False
+                return 0
             else:
                 LogFile.WriteLine('Node: Sleeping')
                 time.sleep(10)
@@ -104,7 +127,7 @@ class NodeObj ():
         # download tar.gz file from the ftp server
         
         ftpSocket = ftplib.FTP()
-        ftpSocket.connect(self.ftpServer,ftpPort)
+        ftpSocket.connect(self.ftpServer,self.ftpPort)
         ftpSocket.login(self.ftpUser,self.ftpPass)
         
         tarName = self.jobFile + '.tar.gz'
@@ -133,6 +156,7 @@ class NodeObj ():
         LogFile.WriteLine('Node: ' + running)
         output = os.system(running)
         os.chdir(mainDir)
+        LogFile.WriteLine('Node: finished job')
         return output
         # run povray from the command line
         # use self.jobParams as the arguments
@@ -143,7 +167,7 @@ class NodeObj ():
         # probablly want error checking
         LogFile.WriteLine('Node: Uploading output file to ftp server')
         ftpSocket = ftplib.FTP()
-        ftpSocket.connect(self.ftpServer,ftpPort)
+        ftpSocket.connect(self.ftpServer,self.ftpPort)
         ftpSocket.login(self.ftpUser,self.ftpPass)
         ftpDirFolder = self.jobFile + 'images'
         ftpSocket.cwd(ftpDirFolder)
@@ -157,17 +181,28 @@ class NodeObj ():
         LogFile.WriteLine('Node: Clearing up temp dirs')
         tempFiles = os.path.join(tempFolder, self.jobFile)
         shutil.rmtree(tempFiles)
-        self.serverSocket.send('Completed')
+        sentOK = self.serverSocket.send('Completed')
+        if sentOK == 0:
+            LogFile.WriteLine('Node: Connection to server has died. Will sleep then reconnect')
+            time.sleep(5)
+            self.connectedServer = False
+            return 0
         # send job completion message back
         # format output of job program
         # send job information back
 
     def JobError(self):
+        LogFile.WriteLine('Node: Problem running job')
         LogFile.WriteLine('Node: Clearing up temp dirs')
         tempFiles = os.path.join(tempFolder, self.jobFile)
         shutil.rmtree(tempFiles)
         LogFile.WriteLine('Node: Telling server job had errors')
         self.serverSocket.send('Error')
+        if sentOK == 0:
+            LogFile.WriteLine('Node: Connection to server has died. Will sleep then reconnect')
+            time.sleep(5)
+            self.connectedServer = False
+            return 0
         # send job completion message back
         # format output of job program
         # send job information back
@@ -203,26 +238,29 @@ class NodeDaemon(Daemon):
         clusterNode = NodeObj()
         
         while True:
-            LogFile.WriteLine('Node: Trying to connect to server')
-            clusterNode.ServerConnect()
-            LogFile.WriteLine('Node: Connected to server')
-            clusterNode.Handshake()
-            LogFile.WriteLine('Node: Hanshake OK')
             
-            while clusterNode.connectedServer:
-                LogFile.WriteLine('Node: Checking for jobs')
-                if clusterNode.CheckForJobs():
-                    clusterNode.FtpDownload()
-                    clusterNode.UntarFile()
-                    jobState = clusterNode.RunJob()
-                    LogFile.WriteLine('Node: finished job')
-                    if not jobState:
-                        LogFile.WriteLine('Node: Job run fine')
-                        clusterNode.UploadOutputFile()
-                        clusterNode.CompletedTask()
-                    else:
-                        LogFile.WriteLine('Node: Problem running job')
-
+            if clusterNode.ServerConnect():
+                
+                if clusterNode.Handshake():
+                    
+                    while clusterNode.connectedServer:
+                        
+                        if clusterNode.CheckForJobs():
+                            clusterNode.FtpDownload()
+                            clusterNode.UntarFile()
+                            jobState = clusterNode.RunJob()
+                            if not jobState:
+                                LogFile.WriteLine('Node: Job run fine')
+                                clusterNode.UploadOutputFile()
+                                clusterNode.CompletedTask()
+                            else:
+                                clusterNode.JobError()
+                else:
+                    LogFile.WriteLine('Node: Could not handshake')
+                    time.sleep(2)
+            else:
+                LogFile.WriteLine('Node: Could not connect to server')
+                time.sleep(10)
 
 if __name__ == "__main__":
 
