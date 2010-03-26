@@ -104,19 +104,24 @@ class ClientThread(threading.Thread):
         threading.Thread.__init__(self)
     
     def run(self):
-        self.Handshake()
-        LogFile.WriteLine('Client Thread: client thread running')
-        while self.running:
-            self.GetClientInfo()
+        if self.Handshake():
+            LogFile.WriteLine('Client Thread: client thread running')
+            while self.running:
+                self.GetClientInfo()
 
     def Handshake(self):
-        self.clientSocket.send('connected')
+        sendData = self.clientSocket.send('connected')
+        if sendData == 0:
+            LogFile.WriteLine('Client Thread: Handshake Failed')
+            return 0
+        else:
+            return 1
 
     def GetClientInfo(self):
         try:
             fileName = self.clientSocket.recv(1024)
-            if fileName == 0 or fileName == '':
-                print 'problem here'
+            if fileName == '':
+                LogFile.WriteLine('Client Thread: Client disconnected')
                 self.running = False
                 return 0
             LogFile.WriteLine('Client Thread: client sent ' + fileName)
@@ -441,15 +446,15 @@ class NodeThread(threading.Thread):
         LogFile.WriteLine(self.name + ': up and running for IP ' + str(self.nodeIP))
         while self.running:
             self.GetJob()
-            if self.jobParams != None:
-                self.RunJob()
-            else:
-                LogFile.WriteLine(self.name + ': Round again')
+            if not self.RunJob():
+                self.PutJobBack()
+                self.running = False
 
     def Handshake(self):
         try:
             connectCheck = self.nodeSocket.send('connected')
             if connectCheck == 0:
+                LogFile.WriteLine(self.name + ': Handshake Failed')
                 return False
             else:
                 return True
@@ -468,7 +473,12 @@ class NodeThread(threading.Thread):
     def RunJob(self):
         LogFile.WriteLine(self.name + ': got a job to run')
         LogFile.WriteLine(self.name + ': job info ' + self.jobParams )
-        self.nodeSocket.send('jobs available')
+        
+        sendData = self.nodeSocket.send('jobs available')
+        if sendData == 0:
+            LogFile.WriteLine(self.name + ': problem with connection')
+            return False
+            
         nodeInfo = self.nodeSocket.recv(1024)
         if nodeInfo == '':
             self.running = False
@@ -477,25 +487,31 @@ class NodeThread(threading.Thread):
             LogFile.WriteLine(self.name + ': putting job back into job queue')
             jobQueue.task_done()
             return False
+            
         if nodeInfo == 'info':
             LogFile.WriteLine(self.name + ': remote node is ready for job')
+            
             self.nodeSocket.send(self.jobParams)
-            jobRunning = True
-            while jobRunning:
+            if sendData == 0:
+                LogFile.WriteLine(self.name + ': problem with connection')
+                return False
+                
+            while True:
                 LogFile.WriteLine(self.name + ': remote node is running job')
                 jobStatus = self.nodeSocket.recv(1024)
                 if jobStatus == 'Completed':
                     LogFile.WriteLine(self.name + ': remote node has completed job')
                     jobQueue.task_done()
-                    jobRunning = False
-                elif nodeInfo == '':
-                    self.running = False
+                    return True
+                elif nodeInfo == '' or nodeInfo == 'Error':
                     LogFile.WriteLine(self.name + ': node failed on job ' + self.jobParams)
-                    jobQueue.put(self.jobParams)
-                    LogFile.WriteLine(self.name + ': putting job back into job queue')
-                    jobQueue.task_done()
                     return False
 
+    def PutJobBack(self):
+        jobQueue.put(self.jobParams)
+        LogFile.WriteLine(self.name + ': putting job back into job queue')
+        jobQueue.task_done()
+        
 
 class ServerDaemon(Daemon):
     
