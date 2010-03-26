@@ -206,8 +206,8 @@ class PicJobGen():
 class SequenceObj():
 
     def __init__(self, varName, varSequence, framesP16th):
+        
         self.VarName = varName
-        self.varSequence = self.seqConvert(varSequence)
         self.bpm = 0
         self.frm = 0
         self.length = 0
@@ -217,7 +217,9 @@ class SequenceObj():
         self.seqCount = 0
         self.repeat   = 0
         self.repVal   = 0
-
+        
+        self.varSequence = self.seqConvert(varSequence)
+        
     def seqConvert(self, seqList):
         startVal,curve,meh = seqList[0]
         prevVal      = float(startVal)
@@ -282,6 +284,11 @@ class MovJobGen():
         self.otherParams = Other
         self.varList  = []
         self.varParams = {}
+        self.sequences    = {}
+        
+        self.bpm = 0
+        self.frm = 0
+        self.length = 0
         
         
         LogFile.WriteLine('Task Thread: reading sequence file')
@@ -300,7 +307,6 @@ class MovJobGen():
                 self.varList.append(varName)
                 self.varParams[varName] = varSeqVals
         
-        self.sequences    = None
         
         framesP16th = (16 * float(self.bpm)) / (60 * float(self.frameRate))
 
@@ -319,7 +325,7 @@ class MovJobGen():
             self.sequences[variable] = seqObj
         
     def CreateJobs(self):
-        for job in range(totalLength):
+        for job in range(self.totalLength):
 
             outputFileName = self.outputFile + '_' + str(job)
                     
@@ -330,10 +336,11 @@ class MovJobGen():
             paramsList.append('+W' + str(self.imageWidth))
             paramsList.append(self.otherParams)
             
-            for variable in varList:
-                paramsList.append('Declare=' + str(variable) + '=' + str(sequences[variable].SeqVal()))
+            for variable in self.varList:
+                paramsList.append('Declare=' + str(variable) + '=' + str(self.sequences[variable].SeqVal()))
             
             jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
+            LogFile.WriteLine('Sequence object: ' + jobInfo)
             jobQueue.put(jobInfo)
     
     def TaskFinish(self):
