@@ -14,6 +14,7 @@ from daemon import Daemon
 tempFolder = '/var/tmp/clusterTemp'
 logFile    = '/var/log/RenderNode.log'
 pidFile    = '/var/run/renderNode.pid'
+foreground = 0
 serverPort = 5007
 ftpPort    = 3457
 serverIP   = '192.168.2.14'
@@ -230,12 +231,21 @@ class NodeDaemon(Daemon):
     
     def run(self):
         
+        global LogFile
+        LogFile = LoggingObj()
+        
+        LogFile.WriteLine('\n\n')
+        LogFile.WriteLine('Cluster Node Starting Up')
+        LogFile.WriteLine('')
+        
         LogFile.WriteLine('Checking that all necesarry folders are available')
         
         if not os.path.exists(tempFolder):
             os.mkdir(tempFolder)
 
         clusterNode = NodeObj()
+        
+        LogFile.WriteLine('Cluster Node running')
         
         while True:
             
@@ -264,35 +274,24 @@ class NodeDaemon(Daemon):
 
 if __name__ == "__main__":
 
-        global LogFile
-        LogFile = LoggingObj()
-        
-        LogFile.WriteLine('\n\n')
-        LogFile.WriteLine('Cluster Node Starting Up')
-        LogFile.WriteLine('')
-        daemon = NodeDaemon(pidFile)
-        
-        if len(sys.argv) == 2:
-                if 'start' == sys.argv[1]:
-                        LogFile.WriteLine('Starting Daemon')
-                        daemon.start()
-                elif 'foreground' == sys.argv[1]:
-                        LogFile.WriteLine('Running in foreground')
-                        daemon.run()
-                elif 'stop' == sys.argv[1]:
-                        LogFile.WriteLine('Stopping Daemon')
-                        daemon.stop()
-                elif 'restart' == sys.argv[1]:
-                        LogFile.WriteLine('Restarting Daemon')
-                        daemon.restart()
-                else:
-                        LogFile.WriteLine('Unknown Command')
-                        print "Unknown command"
-                        sys.exit(2)
-                sys.exit(0)
-        else:
-                print "usage: %s start|stop|restart|foreground" % sys.argv[0]
-                sys.exit(2)
-                
-
+    daemon = NodeDaemon(pidFile)
+    
+    if len(sys.argv) == 2:
+            if 'start' == sys.argv[1]:
+                    daemon.start()
+            elif 'foreground' == sys.argv[1]:
+                    foreground = 1
+                    daemon.run()
+            elif 'stop' == sys.argv[1]:
+                    daemon.stop()
+            elif 'restart' == sys.argv[1]:
+                    daemon.restart()
+            else:
+                    print "Unknown command"
+                    sys.exit(2)
+            sys.exit(0)
+    else:
+            print "usage: %s start|stop|restart|foreground" % sys.argv[0]
+            sys.exit(2)
+            
 

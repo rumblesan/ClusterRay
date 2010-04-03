@@ -20,6 +20,7 @@ ftpFolder = '/var/ftp'
 tempFolder = '/var/tmp/clusterTemp'
 loggingFile = '/var/log/RenderServer.log'
 pidFile = '/var/run/renderServer.pid'
+foreground = 0
 ftpPort = 3457
 serverPort = 5007
 
@@ -60,8 +61,10 @@ class LoggingObj():
     def WriteLine(self, logLine):
         self.logFileLock.acquire()
         output = self.TimeStamp() + '  ' + str(logLine) + '\n'
-        self.fileHandle.write(output)
-        print output
+        if foreground:
+            print output
+        else:
+            self.fileHandle.write(output)
         self.logFileLock.release()
     
     def TimeStamp(self):
@@ -592,6 +595,7 @@ if __name__ == "__main__":
             if 'start' == sys.argv[1]:
                     daemon.start()
             elif 'foreground' == sys.argv[1]:
+                    foreground = 1
                     daemon.run()
             elif 'stop' == sys.argv[1]:
                     daemon.stop()
@@ -602,7 +606,7 @@ if __name__ == "__main__":
                     sys.exit(2)
             sys.exit(0)
     else:
-            print "usage: %s start|stop|restart" % sys.argv[0]
+            print "usage: %s start|stop|restart|foreground" % sys.argv[0]
             sys.exit(2)
                 
 
