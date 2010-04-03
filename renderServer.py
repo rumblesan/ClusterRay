@@ -147,6 +147,9 @@ class PicJobGen():
         self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
+        else:
+            shutil.rmtree(self.tempImagesDir)
+            os.mkdir(self.tempImagesDir)
         
         self.jobNumber     = JobNumber
         self.inputFile     = InputFile
@@ -255,7 +258,8 @@ class SequenceObj():
     def SeqVal(self):
         if not self.repeat:
             start, delta, length, curve = self.varSequence[self.sectionCount]
-            value = start + (delta * pow((self.seqCount / length),curve))
+            value = start + (delta * pow((float(self.seqCount) / float(length)),curve))
+            LogFile.WriteLine(("stuff here", value, delta, self.seqCount, length, curve, (delta * pow((self.seqCount / length),curve))))
             self.seqCount += 1
             if self.seqCount == length:
                 self.sectionCount += 1
@@ -275,6 +279,9 @@ class MovJobGen():
  
         self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
+            os.mkdir(self.tempImagesDir)
+        else:
+            shutil.rmtree(self.tempImagesDir)
             os.mkdir(self.tempImagesDir)
 
         self.inputFile = InputFile
@@ -327,7 +334,7 @@ class MovJobGen():
     def CreateJobs(self):
         for job in range(self.totalLength):
 
-            outputFileName = self.outputFile + '_' + str(job)
+            outputFileName = self.outputFile + '_' + str(job) + '.png'
                     
             paramsList = []
             paramsList.append('+I' + self.inputFile)
