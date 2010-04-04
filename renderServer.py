@@ -129,7 +129,7 @@ class ClientThread(threading.Thread):
                 return 0
             LogFile.WriteLine('Client Thread: client sent ' + fileName)
             tarFileName = fileName + '.tar.gz'
-            ftpFile = os.path.join(os.getcwd(), ftpFolder, tarFileName)
+            ftpFile = os.path.join(ftpFolder, tarFileName)
             if os.path.isfile(ftpFile):
                 LogFile.WriteLine('Client Thread: file is on ftp server')
                 taskQueue.put(fileName)
@@ -147,7 +147,7 @@ class PicJobGen():
     def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
         self.taskFile      = TaskFile
 
-        self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
+        self.tempImagesDir = os.path.join(ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
         else:
@@ -205,7 +205,7 @@ class PicJobGen():
         # Join image files together that have been uploaded to the ftp
 
     def TaskCleanUp(self):
-        tempDir = os.path.join(os.getcwd(), tempFolder, self.taskFile)
+        tempDir = os.path.join(tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
 
 
@@ -280,7 +280,7 @@ class MovJobGen():
     def __init__(self, InputFile, OutputFile, TaskFile, Height, Width, Other):
         self.taskFile = TaskFile
  
-        self.tempImagesDir = os.path.join(os.getcwd(), ftpFolder, self.taskFile + 'images')
+        self.tempImagesDir = os.path.join(ftpFolder, self.taskFile + 'images')
         if not os.path.exists(self.tempImagesDir):
             os.mkdir(self.tempImagesDir)
         else:
@@ -302,7 +302,7 @@ class MovJobGen():
         
         
         LogFile.WriteLine('Task Thread: reading sequence file')
-        paramFile = open(os.path.join(os.getcwd(), tempFolder, self.taskFile, 'seqFile.txt'))
+        paramFile = open(os.path.join(tempFolder, self.taskFile, 'seqFile.txt'))
         for line in paramFile:
             line = line.rstrip()
             line,params = line.split(':')
@@ -361,7 +361,7 @@ class MovJobGen():
  
  
     def TaskCleanUp(self):
-        tempDir = os.path.join(os.getcwd(), 'temp', self.taskFile)
+        tempDir = os.path.join(tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
 
 class TaskThread(threading.Thread):
@@ -412,12 +412,12 @@ class TaskThread(threading.Thread):
                 time.sleep(10)
 
     def ReadParams(self):
-        self.tarName = os.path.join(os.getcwd(), ftpFolder, self.taskFile + '.tar.gz')
+        self.tarName = os.path.join(ftpFolder, self.taskFile + '.tar.gz')
         tarFile = tarfile.open(self.tarName, mode = 'r:gz')
         tarFile.extractall(tempFolder)
         tarFile.close()
         LogFile.WriteLine('Task Thread: reading parameters file')
-        paramFile = open(os.path.join(os.getcwd(), tempFolder, self.taskFile, 'params.cfg'))
+        paramFile = open(os.path.join(tempFolder, self.taskFile, 'params.cfg'))
         for line in paramFile:
             line = line.rstrip()
             line,params = line.split(':')
