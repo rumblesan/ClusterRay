@@ -20,7 +20,6 @@ ftpFolder = '/var/ftp'
 tempFolder = '/var/tmp/clusterTemp'
 loggingFile = '/var/log/RenderServer.log'
 pidFile = '/var/run/renderServer.pid'
-foreground = 0
 ftpPort = 3457
 serverPort = 5007
 
@@ -54,9 +53,10 @@ class ServerObj():
 class LoggingObj():
 
     def __init__(self):
-        self.logFile = os.path.join(loggingFile)
-        self.fileHandle = open(self.logFile, 'w')
+        self.logFile     = os.path.join(loggingFile)
+        self.fileHandle  = open(self.logFile, 'w')
         self.logFileLock = threading.Lock()
+		self.foreground  = 0
 
     def WriteLine(self, logLine):
         self.logFileLock.acquire()
@@ -142,7 +142,7 @@ class ClientThread(threading.Thread):
 
 
 
-class PicJobGen():
+class JobGen():
 
     def __init__(self, InputFile, OutputFile, TaskFile, JobNumber, Height, Width, Other):
         self.taskFile      = TaskFile
@@ -208,161 +208,6 @@ class PicJobGen():
         tempDir = os.path.join(tempFolder, self.taskFile)
         shutil.rmtree(tempDir)
 
-
-class SequenceObj():
-
-    def __init__(self, varName, varSequence, framesP16th):
-        
-        self.VarName = varName
-        self.bpm = 0
-        self.frm = 0
-        self.length = 0
-        self.framesP16th = framesP16th
-        
-        self.sectionCount = 0
-        self.seqCount = 0
-        self.repeat   = 0
-        self.repVal   = 0
-        
-        self.varSequence = self.seqConvert(varSequence)
-        
-    def seqConvert(self, seqList):
-        startVal,curve,meh = seqList[0]
-        prevVal      = float(startVal)
-        prevcurve    = float(curve)
-        if prevcurve > 1:
-            prevcurve = 1
-        elif prevcurve < 0:
-            prevcurve = 0
-        prevPos = 0
-        newSeq = []
-        
-        for data in seqList[1:]:
-            value,curve,position = data
-            newValue    = float(value)
-            newcurve    = float(curve)
-            if newcurve > 1:
-                newcurve = 1
-            elif newcurve < 0:
-                newcurve = 0
-
-            posBars, posBeats, posTeenths = position.split('.')
-            teenthVal = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
-            
-            secLength = int(self.framesP16th * (teenthVal - prevPos))
-            delta = (newValue - prevVal)
-            newSeq.append((prevVal,delta,secLength,prevcurve))
-            prevVal   = newValue
-            prevPos   = teenthVal
-            prevcurve = newcurve
-            
-        return newSeq
-
-    def SeqVal(self):
-        if not self.repeat:
-            start, delta, length, curve = self.varSequence[self.sectionCount]
-            value = start + (delta * pow((float(self.seqCount) / float(length)),curve))
-            LogFile.WriteLine(("stuff here", value, delta, self.seqCount, length, curve, (delta * pow((self.seqCount / length),curve))))
-            self.seqCount += 1
-            if self.seqCount == length:
-                self.sectionCount += 1
-                self.seqCount = 0
-            if self.sectionCount == len(self.varSequence):
-                self.repeat = 1
-                self.repVal = value
-            return value
-        else:
-            return self.repVal
-        
-
-class MovJobGen():
-
-    def __init__(self, InputFile, OutputFile, TaskFile, Height, Width, Other):
-        self.taskFile = TaskFile
- 
-        self.tempImagesDir = os.path.join(ftpFolder, self.taskFile + 'images')
-        if not os.path.exists(self.tempImagesDir):
-            os.mkdir(self.tempImagesDir)
-        else:
-            shutil.rmtree(self.tempImagesDir)
-            os.mkdir(self.tempImagesDir)
-
-        self.inputFile = InputFile
-        self.outputFile = OutputFile
-        self.imageHeight = Height
-        self.imageWidth = Width
-        self.otherParams = Other
-        self.varList  = []
-        self.varParams = {}
-        self.sequences    = {}
-        
-        self.bpm = 0
-        self.frm = 0
-        self.length = 0
-        
-        
-        LogFile.WriteLine('Task Thread: reading sequence file')
-        paramFile = open(os.path.join(tempFolder, self.taskFile, 'seqFile.txt'))
-        for line in paramFile:
-            line = line.rstrip()
-            line,params = line.split(':')
-            if line == 'bpm':
-                self.bpm = int(params)
-            elif line == 'frm':
-                self.frameRate   = int(params)
-            elif line == 'len':
-                self.length   = params
-            elif line == 'varseq':
-                varName,varSeqVals   = eval(params)
-                self.varList.append(varName)
-                self.varParams[varName] = varSeqVals
-        
-        
-        framesP16th = (16 * float(self.bpm)) / (60 * float(self.frameRate))
-
-        posBars, posBeats, posTeenths = self.length.split('.')
-        lengthTeenths = (int(posBars) * 16) + (int(posBeats) * 4) + (int(posTeenths))
-        self.totalLength = lengthTeenths * framesP16th
-        
-        for variable in self.varList:
-    
-            variableSequence = self.varParams[variable]
-            
-            seqObj = SequenceObj(variable,variableSequence, framesP16th)
-            seqObj.bpm = self.bpm
-            seqObj.frm = self.frameRate
-            seqObj.length = self.totalLength
-            self.sequences[variable] = seqObj
-        
-    def CreateJobs(self):
-        for job in range(self.totalLength):
-
-            outputFileName = self.outputFile + '_' + str(job) + '.png'
-                    
-            paramsList = []
-            paramsList.append('+I' + self.inputFile)
-            paramsList.append('+O' + outputFileName)
-            paramsList.append('+H' + str(self.imageHeight))
-            paramsList.append('+W' + str(self.imageWidth))
-            paramsList.append(self.otherParams)
-            
-            for variable in self.varList:
-                paramsList.append('Declare=' + str(variable) + '=' + str(self.sequences[variable].SeqVal()))
-            
-            jobInfo = self.taskFile + '::' + outputFileName + '::' + ' '.join(paramsList)
-            LogFile.WriteLine('Sequence object: ' + jobInfo)
-            jobQueue.put(jobInfo)
-    
-    def TaskFinish(self):
-        mainDir = os.getcwd()
-        os.chdir(self.tempImagesDir)
-        # Code to join single frames into movie goes here
-        os.chdir(mainDir) 
- 
- 
-    def TaskCleanUp(self):
-        tempDir = os.path.join(tempFolder, self.taskFile)
-        shutil.rmtree(tempDir)
 
 class TaskThread(threading.Thread):
 
@@ -438,12 +283,8 @@ class TaskThread(threading.Thread):
 
         paramFile.close()
 
-        if self.renderType == 'picture':
-            LogFile.WriteLine('Task Thread: rendering a picture')
-            self.jobCreator = PicJobGen(self.inputFile, self.outputFile, self.taskFile, self.jobNumber, self.imageHeight, self.imageWidth, self.otherParams)
-        elif self.renderType == 'movie':
-            self.jobCreator = MovJobGen(self.inputFile, self.outputFile, self.taskFile, self.imageHeight, self.imageWidth, self.otherParams)
-            LogFile.WriteLine('Task Thread: rendering a video')
+        LogFile.WriteLine('Task Thread: rendering a picture')
+        self.jobCreator = JobGen(self.inputFile, self.outputFile, self.taskFile, self.jobNumber, self.imageHeight, self.imageWidth, self.otherParams)
         LogFile.WriteLine('Task Thread: finished reading parameters')
 
 
@@ -535,8 +376,9 @@ class ServerDaemon(Daemon):
     def run(self):
         
         global LogFile
+        
         LogFile = LoggingObj()
-
+        
         LogFile.WriteLine('\n\n')
         LogFile.WriteLine('Cluster Server Starting Up')
         LogFile.WriteLine('')
@@ -590,23 +432,22 @@ class ServerDaemon(Daemon):
 if __name__ == "__main__":
 
     daemon = ServerDaemon(pidFile)
-    
+	
     if len(sys.argv) == 2:
-            if 'start' == sys.argv[1]:
-                    daemon.start()
-            elif 'foreground' == sys.argv[1]:
-                    foreground = 1
-                    daemon.run()
-            elif 'stop' == sys.argv[1]:
-                    daemon.stop()
-            elif 'restart' == sys.argv[1]:
-                    daemon.restart()
-            else:
-                    print "Unknown command"
-                    sys.exit(2)
-            sys.exit(0)
-    else:
-            print "usage: %s start|stop|restart|foreground" % sys.argv[0]
+        if 'start' == sys.argv[1]:
+            daemon.start()
+        elif 'foreground' == sys.argv[1]:
+            LogFile.foreground = 1
+            daemon.run()
+        elif 'stop' == sys.argv[1]:
+            daemon.stop()
+        elif 'restart' == sys.argv[1]:
+            daemon.restart()
+        else:
+            print "Unknown command"
             sys.exit(2)
+        sys.exit(0)
+    else:
+        print "usage: %s start|stop|restart|foreground" % sys.argv[0]
+        sys.exit(2)
                 
-
