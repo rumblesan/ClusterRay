@@ -2,7 +2,7 @@
 from RayManager import RayManager
 from Manager import Manager
 
-class JobManager():
+class JobManager(Manager):
 
     debug        = False
 
