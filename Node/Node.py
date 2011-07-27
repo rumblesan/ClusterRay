@@ -10,21 +10,23 @@ class Node():
         self.job_queue = JobQueue()
 
     def check_for_jobs(self):
+        #checks the JobQueue object for new jobs
         pass
 
     def new_job(self):
+        #adds a new job to the JobManager object
         pass
 
-    def check_processes(self):
+    def get_finished_jobs(self):
+        #get finished jobs from JobManager
         pass
 
     def good_job(self):
+        #if those processes finished ok, send back the info
         pass
 
     def bad_job(self):
-        pass
-
-    def event_loop(self):
+        #if those processes didn' finished ok, alert the Master
         pass
 
 
