@@ -2,7 +2,6 @@
 class Manager():
 
     running_tasks  = {}
-    finished_tasks = {}
 
     task_number    = 1
     active_tasks   = 0
@@ -11,7 +10,7 @@ class Manager():
     def __init__(self, max_tasks):
         self.max_tasks = max_tasks
 
-    def free_task_space(self):
+    def free_task_slots(self):
         if self.active_tasks == self.max_tasks:
             return False
         else:
@@ -36,11 +35,10 @@ class Manager():
         return self.task_number
 
     def get_finished_tasks(self):
-        finished     = [t for t in self.running_tasks if self.finished(t)]
-        not_finished = [t for t in self.running_tasks if not self.finished(t)]
-        self.running_tasks = not_finished
-        self.finished_list = not_finished
-        self.active_tasks -= len(finished)
+        finished = [t for t in self.running_tasks if self.finished(t)]
+        running  = [t for t in self.running_tasks if not self.finished(t)]
+        self.running_tasks  = running
+        return finished
 
 
 
