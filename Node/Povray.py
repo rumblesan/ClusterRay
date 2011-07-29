@@ -12,9 +12,7 @@ class Povray():
     return_value = None
     completed    = False
 
-    def __init__(self, ray_info, node_number):
-
-        self.node_number = node_number
+    def __init__(self, ray_info):
 
         self.command     = "povray"
 
@@ -30,7 +28,6 @@ class Povray():
         self.end_col     = ray_info['end']
 
     def create_args(self):
-        self.args = self.defaults
         self.args.append(self.command)
         self.args.append("+I" + self.inputfile)
         self.args.append("+O" + self.outputfile)
@@ -39,6 +36,7 @@ class Povray():
         self.args.append("+SC" + self.start_col)
         self.args.append("+EC" + self.end_col)
         self.args.extend(self.extras)
+        self.args.extend(self.defaults)
 
     def run(self):
         self.process = Popen(self.args, stdin=None, stdout=PIPE, stderr=PIPE)
@@ -56,6 +54,6 @@ class Povray():
         return self.process.communicate()
 
     def get_image(self):
-        return os.path.join(self.workingdir, self.outputfile)
+        return self.outputfile
 
 
