@@ -35,9 +35,15 @@ class Manager():
         return self.task_number
 
     def get_finished_tasks(self):
-        finished = [t for t in self.running_tasks if self.finished(t)]
-        running  = [t for t in self.running_tasks if not self.finished(t)]
+        finished = {}
+        running  = {}
+        for task_num, task in self.running_tasks.iteritems():
+            if self.finished(task):
+                finished[task_num] = task
+            else:
+                running[task_num] = task
         self.running_tasks  = running
+        self.active_tasks = len(running)
         return finished
 
 
