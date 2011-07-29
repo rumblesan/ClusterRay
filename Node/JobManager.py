@@ -19,12 +19,13 @@ class JobManager():
 
     def get_finished_jobs(self):
         finished_jobs = self.RayManager.get_finished_tasks()
+        print finished_jobs
         job_list = []
         if len(finished_jobs) > 0:
-            for id_num, job in self.RayManager.finished_tasks.iteritems():
+            for id_num, job in finished_jobs.iteritems():
                 job_return = {}
-                job_return['job_id']   = self.job_info[key]['job_id']
-                if task.return_value == 0:
+                job_return['job_id']   = self.job_info[id_num]['job_id']
+                if job.return_value == 0:
                     job_return['status'] = 'OK'
                     job_return['job_file'] = job.get_image()
                 else:
