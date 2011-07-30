@@ -4,10 +4,7 @@ from Manager import Manager
 
 class RayManager(Manager):
 
-    debug        = False
-
-    def __init__(self, max_rays=1, debug=False):
-        self.debug = debug
+    def __init__(self, max_rays=1)
         Manager.__init__(self, max_rays)
 
     def new_process(self, job_info):
