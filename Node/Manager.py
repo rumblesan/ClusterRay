@@ -35,11 +35,11 @@ class Manager():
         return self.task_number
 
     def get_finished_tasks(self):
-        finished = {}
+        finished = []
         running  = {}
         for task_num, task in self.running_tasks.iteritems():
             if self.finished(task):
-                finished[task_num] = task
+                finished.append(task.get_output_info())
             else:
                 running[task_num] = task
         self.running_tasks  = running
