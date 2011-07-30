@@ -10,8 +10,9 @@ class RayManager(Manager):
         self.debug = debug
         Manager.__init__(self, max_rays)
 
-    def new_process(self, config_json):
-        new_process = Povray(config_json)
+    def new_process(self, job_info):
+        job_info['outputfile'] = str(job_info['job_id'])
+        new_process = Povray(job_info)
         new_process.create_args()
         new_process.run()
         ray_number = self.add_task(new_process)
