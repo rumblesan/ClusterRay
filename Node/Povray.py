@@ -1,7 +1,6 @@
 
 from subprocess import Popen, PIPE
 import os
-import shutil
 
 
 class Povray():
@@ -15,6 +14,8 @@ class Povray():
     def __init__(self, ray_info):
 
         self.command     = "povray"
+
+        self.job_id      = ray_info['job_id']
 
         self.extras      = ray_info['extras']
 
@@ -53,7 +54,16 @@ class Povray():
     def communicate(self):
         return self.process.communicate()
 
-    def get_image(self):
-        return self.outputfile
+    def get_output_info(self):
+        output_info = {}
+        output_info['job_id'] = self.job_id
+        if self.return_value == 0:
+            output_info['status']   = 'OK'
+            output_info['job_file'] = self.outputfile
+        else:
+            output_info['status']   = 'ERROR'
+            if os.path.exists(self.outputfile):
+                os.remove(self.outputfile)
+        return output_info
 
 
