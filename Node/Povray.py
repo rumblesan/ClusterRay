@@ -15,7 +15,7 @@ class Povray():
 
         self.command     = "povray"
 
-        self.job_id      = ray_info['job_id']
+        self.id          = ray_info['id']
 
         self.extras      = ray_info['extras']
 
@@ -56,10 +56,10 @@ class Povray():
 
     def get_output_info(self):
         output_info = {}
-        output_info['job_id'] = self.job_id
+        output_info['id'] = self.id
         if self.return_value == 0:
             output_info['status']   = 'OK'
-            output_info['job_file'] = self.outputfile
+            output_info['file'] = self.outputfile
         else:
             output_info['status']   = 'ERROR'
             if os.path.exists(self.outputfile):

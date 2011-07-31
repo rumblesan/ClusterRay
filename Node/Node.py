@@ -1,53 +1,57 @@
 #!/usr/bin/env python
 
-from JobManager import JobManager
-from JobQueue import JobQueue
+from RayManager import RayManager
+from TaskQueue import TaskQueue
 
 class Node():
 
-    def __init__(self):
-        self.JobManager = JobManager(4)
-        self.JobQueue   = JobQueue()
+    def __init__(self, taskqueue, taskmanager):
+        self.taskmanager = taskmanager
+        self.taskqueue    = taskqueue
 
-    def free_job_slots(self):
-        return self.JobManager.free_job_slots()
+    def free_task_slots(self):
+        return self.taskmanager.free_task_slots()
 
-    def check_for_jobs(self):
-        #checks the JobQueue object for new jobs
-        if self.JobQueue.jobs_available():
-            job_info = self.JobQueue.get_job()
-            self.add_job(job_info)
+    def check_for_tasks(self):
+        #checks the taskqueue object for new tasks
+        if self.taskqueue.tasks_available():
+            task_info = self.taskqueue.get_task()
+            self.add_task(task_info)
 
-    def add_job(self, new_job):
-        self.JobManager.add_job(new_job)
+    def add_task(self, task_info):
+        self.taskmanager.new_task(task_info)
 
-    def get_finished_jobs(self):
-        #get finished jobs from JobManager
-        finished = self.JobManager.get_finished_jobs()
-        for job in finished:
-            if job['status'] == 'OK':
-                self.good_job(job)
+    def get_finished_tasks(self):
+        #get finished tasks from taskmanager
+        finished = self.taskmanager.get_finished_tasks()
+        for task in finished:
+            if task['status'] == 'OK':
+                self.good_task(task)
             else:
-                self.bad_job(job)
+                self.bad_task(task)
 
-    def good_job(self, job):
+    def good_task(self, task):
         #if those processes finished ok, send back the info
-        print job
+        print "Good task"
+        print task
 
-    def bad_job(self, job):
+    def bad_task(self, task):
         #if those processes didn' finished ok, alert the Master
-        print job
+        print "Bad Task"
+        print task
 
     def heartbeat(self):
         #sends message back to Master to say Node is still alive
         print 'heartbeat'
 
 def main():
-    node = Node()
+    taskmanager = RayManager()
+    taskqueue   = TaskQueue()
+    node        = Node(taskqueue, taskmanager)
     while 1:
-        if node.free_job_slots():
-            node.check_for_jobs()
-        node.get_finished_jobs()
+        if node.free_task_slots():
+            node.check_for_tasks()
+        node.get_finished_tasks()
         node.heartbeat()
         sleep(5)
 

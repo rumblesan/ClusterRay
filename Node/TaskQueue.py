@@ -1,27 +1,27 @@
 
 
-class JobQueue():
+class TaskQueue():
 
-    jobs = []
-    next_job = None
+    tasks = []
+    next_task = None
 
     def __init__(self):
         pass
 
-    def jobs_available(self):
-        if len(self.jobs) == 0:
+    def tasks_available(self):
+        if len(self.tasks) == 0:
             return False
         else:
             return True
 
-    def get_job(self):
-        if not len(self.jobs) == 0:
-            return self.jobs.pop(0)
+    def get_task(self):
+        if not len(self.tasks) == 0:
+            return self.tasks.pop(0)
 
-    def job_completed(self, job_info):
+    def task_completed(self, task_info):
         pass
 
-    def job_errored(self, job_info):
+    def task_errored(self, task_info):
         pass
 
     def send_heartbeat(self):

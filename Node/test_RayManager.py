@@ -7,9 +7,10 @@ import json
 import random
 
 
-def get_job():
+def get_task():
     data = {}
     data['inputfile']  = 'fractal2.pov'
+    data['id']         = str(random.randint(0,1000)) + 'output'
     data['outputfile'] = str(random.randint(0,1000)) + 'output.png'
     data['width']      = '500'
     data['height']     = str(400 + random.randint(0, 400))
@@ -25,13 +26,13 @@ def main():
     manager = RayManager(2)
     while 1:
         if manager.free_task_slots() and count < 5:
-            new_job = get_job()
-            manager.new_process(new_job)
+            new_task = get_task()
+            manager.new_task(new_task)
             count += 1
             print count
-        finished_jobs = manager.get_finished_tasks()
-        for id_num, job in finished_jobs.iteritems():
-            print (id_num, job.return_value)
+        finished_tasks = manager.get_finished_tasks()
+        for task in finished_tasks:
+            print task
         active_tasks = manager.active_tasks
         print active_tasks
         if count == 5 and active_tasks == 0:
