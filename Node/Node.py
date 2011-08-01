@@ -1,13 +1,10 @@
 #!/usr/bin/env python
 
-from RayManager import RayManager
-from TaskQueue import TaskQueue
-
 class Node():
 
     def __init__(self, taskqueue, taskmanager):
         self.taskmanager = taskmanager
-        self.taskqueue    = taskqueue
+        self.taskqueue   = taskqueue
 
     def free_task_slots(self):
         return self.taskmanager.free_task_slots()
@@ -44,16 +41,4 @@ class Node():
         #sends message back to Master to say Node is still alive
         print 'heartbeat'
 
-def main():
-    taskmanager = RayManager()
-    taskqueue   = TaskQueue()
-    node        = Node(taskqueue, taskmanager)
-    while 1:
-        if node.free_task_slots():
-            node.check_for_tasks()
-        node.get_finished_tasks()
-        node.heartbeat()
-        sleep(5)
 
-if __name__ == '__main__':
-    main()
