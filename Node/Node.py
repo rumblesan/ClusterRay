@@ -2,17 +2,17 @@
 
 class Node():
 
-    def __init__(self, taskqueue, taskmanager):
+    def __init__(self, master_coms, taskmanager):
         self.taskmanager = taskmanager
-        self.taskqueue   = taskqueue
+        self.master_coms = master_coms
 
     def free_task_slots(self):
         return self.taskmanager.free_task_slots()
 
     def check_for_tasks(self):
         #checks the taskqueue object for new tasks
-        if self.taskqueue.tasks_available():
-            task_info = self.taskqueue.get_task()
+        if self.master_coms.tasks_available():
+            task_info = self.master_coms.get_task()
             self.add_task(task_info)
 
     def add_task(self, task_info):
