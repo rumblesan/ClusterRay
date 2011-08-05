@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from RayManager import RayManager
+from Node.RayManager import RayManager
 from time import sleep
 import sys
 import json
@@ -9,7 +9,7 @@ import random
 
 def get_task():
     data = {}
-    data['inputfile']  = 'fractal2.pov'
+    data['inputfile']  = 'misc/fractal2.pov'
     data['id']         = str(random.randint(0,1000)) + 'output'
     data['outputfile'] = str(random.randint(0,1000)) + 'output.png'
     data['width']      = '500'
