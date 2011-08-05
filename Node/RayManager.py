@@ -1,6 +1,6 @@
 
 from Povray import Povray
-from Manager import Manager
+from libs.Manager import Manager
 
 class RayManager(Manager):
 
