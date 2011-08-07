@@ -6,26 +6,25 @@ class MasterComs():
 
     zmq_context     = None
     zmq_socket      = None
-    message_action  = None
+    message_actions = {}
 
     def __init__(self, host, port):
         context = zmq.Context()
         self.zmq_socket  = context.socket(zmq.REP)
         address = 'tcp://%s:%s' % (host, port)
-        print address
         self.zmq_socket.bind(address)
 
-    def register_action(self, action):
-        #this is where we register our callback
-        #when a message is received we call this function
-        self.message_action = action
+    def register_action(self, name, function):
+        #this is where we register our callbacks
+        #when a message is received we call the right function
+        self.message_actions[name] = function
 
     def run_action(self, message):
         #this is used to run the action
-        if self.message_action == None:
+        if message.action not in self.message_actions.keys():
             return "Action not registered"
         else:
-            return self.message_action(message)
+            return self.message_actions[message.action](message)
 
     def check(self):
         while True:
