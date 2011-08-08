@@ -25,15 +25,15 @@ def main():
     print "create process manager object"
     manager = RayManager(2)
     while 1:
-        if manager.free_task_slots() and count < 5:
+        if manager.free_space() and count < 5:
             new_task = get_task()
             manager.new_task(new_task)
             count += 1
             print count
-        finished_tasks = manager.get_finished_tasks()
+        finished_tasks = manager.get_finished_items()
         for task in finished_tasks:
             print task
-        active_tasks = manager.active_tasks
+        active_tasks = manager.active_items
         print active_tasks
         if count == 5 and active_tasks == 0:
             sys.exit()

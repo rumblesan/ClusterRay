@@ -12,7 +12,7 @@ class RayManager(Manager):
         new_process = Povray(task_info)
         new_process.create_args()
         new_process.run()
-        ray_number = self.add_task(new_process)
+        ray_number = self.add_item(new_process)
         return ray_number
 
     def finished(self, process):

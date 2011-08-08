@@ -7,7 +7,7 @@ class Node():
         self.master_coms = master_coms
 
     def free_task_slots(self):
-        return self.taskmanager.free_task_slots()
+        return self.taskmanager.free_space()
 
     def check_for_tasks(self):
         #checks the taskqueue object for new tasks
@@ -20,7 +20,7 @@ class Node():
 
     def get_finished_tasks(self):
         #get finished tasks from taskmanager
-        finished = self.taskmanager.get_finished_tasks()
+        finished = self.taskmanager.get_finished_items()
         for task in finished:
             if task['status'] == 'OK':
                 self.good_task(task)

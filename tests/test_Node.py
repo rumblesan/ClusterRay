@@ -33,7 +33,7 @@ def main():
             count += 1
             print count
         node.get_finished_tasks()
-        active_tasks = node.taskmanager.active_tasks
+        active_tasks = node.taskmanager.active_items
         print 'active_tasks', active_tasks
         if count == 5 and active_tasks == 0:
             sys.exit()
