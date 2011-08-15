@@ -28,7 +28,7 @@ class Manager():
         while 1:
             if self.running_items.has_key(self.item_number):
                 self.item_number += 1
-                if self.item_number > self.max_items:
+                if self.item_number > self.max_items and self.max_items not = -1:
                     self.item_number = 1
             else:
                 break
