@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+import sys
+sys.path.append("../")
+
 from Node.RayManager import RayManager
 from time import sleep
-import sys
 import json
 import random
 
