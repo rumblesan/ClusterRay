@@ -28,18 +28,21 @@ class Manager():
         while 1:
             if self.running_items.has_key(self.item_number):
                 self.item_number += 1
-                if self.item_number > self.max_items and self.max_items not = -1:
+                if self.item_number > self.max_items and self.max_items != -1:
                     self.item_number = 1
             else:
                 break
         return self.item_number
+
+    def get(self, item_number):
+        return self.running_items[item_number]
 
     def get_finished_items(self):
         finished = []
         running  = {}
         for item_num, item in self.running_items.iteritems():
             if self.finished(item):
-                finished.append(item.get_output_info())
+                finished.append(item)
             else:
                 running[item_num] = item
         self.running_items  = running
