@@ -1,7 +1,7 @@
 
 class TaskManager():
 
-    running_tasks  = []
+    task_queue  = []
     finished_tasks = []
 
     def __init__(self):
@@ -10,10 +10,10 @@ class TaskManager():
     def new_tasks(self, task_list):
         pass
 
-    def get_task(self)
+    def get_task(self):
         pass
 
-    def finished_tasks(self):
+    def finished_task(self, task_info):
         pass
 
     def get_finished_tasks(self):

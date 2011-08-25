@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+#append the path with the folder above this one
+#means we can run tests from here and import files ok
+#probablly a better way to do this. I'll figure it out later
+import sys
+sys.path.append("../")
+
+import unittest
+from Master.TaskManager import TaskManager
+
+def get_task_info(id_num=1):
+    return {'task_id' : id_num}
+
+
+class TaskManagerBehavior(unittest.TestCase):
+
+    def testAddTasks(self):
+        taskmanager = TaskManager()
+        task_list = []
+        task_list.append(get_task_info(1))
+        task_list.append(get_task_info(2))
+        taskmanager.new_tasks(task_list)
+        self.assertEqual(len(taskmanager.task_queue), 2)
+
+    def testGetTask(self):
+        taskmanager = TaskManager()
+        task_list = []
+        task_list.append(get_task_info(1))
+        task_list.append(get_task_info(2))
+        self.assertEqual(len(taskmanager.task_queue), 2)
+        returned_task = taskmanager.get_task()
+        #need to check this works FIFO with tasks
+        self.assertEqual(returned_task['task_id'], 1)
+        self.assertEqual(len(taskmanager.task_queue), 1)
+
+    def testFinishedTask(self):
+        taskmanager = TaskManager()
+        taskmanager.finished_task(get_task_info(1))
+        taskmanager.finished_task(get_task_info(2))
+        self.assertEqual(len(taskmanager.finished_tasks), 2)
+
+    def testGetFinishedTasks(self):
+        taskmanager = TaskManager()
+        taskmanager.finished_task(get_task_info(1))
+        taskmanager.finished_task(get_task_info(2))
+        finished_tasks = taskmanager.get_finished_tasks()
+        self.assertEqual(len(finished_tasks), 2)
+        self.assertEqual(len(taskmanager.finished_tasks), 0)
+
+if __name__ == '__main__':
+    unittest.main()
+
+
