@@ -3,19 +3,21 @@ from libs.PovTask import PovTask
 
 class PovJob():
 
-    queued_tasks   = {}
-    running_tasks  = {}
-    finished_tasks = {}
+    task_list = {}
+    finished  = 0
+    completed = False
 
-    def __init__(self, job_id, job_info):
-        self.job_id   = job_id
+    def __init__(self, job_info):
+        self.job_id   = job_info['job_id']
+        self.job_name = job_info['job_name']
+        self.tasks    = job_info['tasks']
 
-        self.pov_file = job_info['pov_file']
-        self.output   = job_info['output_file']
-        self.width    = int(job_info['width'])
-        self.height   = int(job_info['height'])
-        self.tasks    = int(job_info['tasks'])
-        self.extras   = job_info['extras']
+        pov_data      = job_info['job_data']
+        self.pov_file = pov_data['pov_file']
+        self.output   = pov_data['output_file']
+        self.width    = pov_data['width']
+        self.height   = pov_data['height']
+        self.extras   = pov_data['extras']
 
     def create_tasks(self):
         slice_width = self.width / self.tasks
@@ -26,45 +28,32 @@ class PovJob():
             end      = (i + 1) * slice_width
             if task_num == self.tasks:
                 end += leftover
-            self.queued_tasks[i]          = PovTask()
-            self.queued_tasks[i].job_id   = self.job_id
-            self.queued_tasks[i].task_id  = i
-            self.queued_tasks[i].pov_file = self.pov_file
-            self.queued_tasks[i].output   = "%s-%s-%s" % (self.output, start, end)
-            self.queued_tasks[i].width    = self.width
-            self.queued_tasks[i].height   = self.height
-            self.queued_tasks[i].start    = start
-            self.queued_tasks[i].end      = end
+            self.task_list[i]          = PovTask()
+            self.task_list[i].job_id   = self.job_id
+            self.task_list[i].task_id  = i
 
-    def get_task(self):
-        if len(self.queued_tasks) == 0:
-            return False
-        job_id, job = self.queued_tasks.popitem()
-        self.running_tasks[job_id] = job
-        return job
+            self.task_list[i].job_data = {}
+            self.task_list[i].job_data['pov_file']  = self.pov_file
+            self.task_list[i].job_data['file_name'] = "%s-%s-%s" % (self.output, start, end)
+            self.task_list[i].job_data['width']     = self.width
+            self.task_list[i].job_data['height']    = self.height
+            self.task_list[i].job_data['start']     = start
+            self.task_list[i].job_data['end']       = end
+
+    def get_tasks(self):
+        return self.task_list.values()
 
     def finished_task(self, task):
-        if task.task_id not in self.running_tasks.keys():
-            return False
-        else:
-            del(self.running_tasks[task.task_id])
-            self.finished_tasks[task.task_id] = task
+        task_id = task.task_id
+        self.task_list[task_id].final_data = task.final_data
+        self.finished += 1
+        if self.finished == self.tasks:
+            self.completed = True
 
-    def all_finished(self):
-        if len(self.finished_tasks) == self.tasks:
-            return True
-        else:
-            return False
-
-    def get_output(self):
-        output = []
-        for key, task in self.finished_tasks.iteritems():
-            output.append(task.get_output_file())
-        return self._join_output(output)
-
-    def _join_output(self, parts):
-        #place holder for the moment
-        output = " ".join(parts)
+    def final_output(self):
+        output = ''
+        for ids, task in self.task_list.iteritems():
+            output += task.final_data['file']
         return output
-        
+
 
