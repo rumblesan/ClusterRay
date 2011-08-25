@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+#append the path with the folder above this one
+#means we can run tests from here and import files ok
+#probablly a better way to do this. I'll figure it out later
+import sys
+sys.path.append("../")
+
+import unittest
+from Master.NodeManager import NodeManager
+
+class NodeManagerBehavior(unittest.TestCase):
+
+    def testAddNode(self):
+        nodemanager = NodeManager()
+        nodemanager.new_node(1)
+        nodemanager.new_node(2)
+        self.assertEqual(len(nodemanager.nodes), 2)
+
+    def testRegisterTask(self):
+        nodemanager = NodeManager()
+        nodemanager.new_node(1)
+        nodemanager.register_task(1, 5)
+        task_id = nodemanager.node_jobs[1].pop()
+        self.assertEqual(task_id, 5)
+
+    def testUnRegisterTask(self):
+        nodemanager = NodeManager()
+        nodemanager.new_node(1)
+        nodemanager.register_task(1, 5)
+        nodemanager.register_task(1, 6)
+        nodemanager.un_register_task(1, 5)
+        self.assertEqual(len(nodemanager.node_jobs[1]), 1)
+
+if __name__ == '__main__':
+    unittest.main()
+
+
